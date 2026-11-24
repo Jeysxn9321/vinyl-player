@@ -10,3 +10,6 @@
 
 ## Rebuild round 1 (MD Vinyl direction)
 Portrait became a full-width record with the real cover as label; vinyl colour presets; Spotify playlist browser (new scopes, Reconnect flow); user-supplied app icon. Advisor review caught: reconnect wiping the login, a scope guard that could loop, tonearm landing on the label. All fixed; CI screenshots for the browser sheet added. Still unverified on a device or with a real Spotify account.
+
+## Round 2 (queue, stack, Xcode 27.2)
+Added QueueView and the 3D playlist stack; moved CI to xcode-27 / Xcode 27.2; fixed Duo screenshots (two displays); limited CI usage after the minutes ran out and made the repo public. Demo screenshots checked; nothing tested with a real Spotify account or device.
