@@ -16,6 +16,11 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     private var expiry = Date.distantPast
     private var timer: Timer?
     private var verifier = ""
+    private var session: ASWebAuthenticationSession?   // must be retained until it finishes
+    private var active = false                          // false after disconnect: drop late responses
+    private var polling = false                         // one poll in flight at a time
+
+    deinit { timer?.invalidate() }
 
     func authorize() async throws {
         guard !Self.clientID.isEmpty else {
@@ -31,11 +36,14 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         let url = c.url!
         let cb: URL = try await withCheckedThrowingContinuation { cont in
             DispatchQueue.main.async {
-                let s = ASWebAuthenticationSession(url: url, callbackURLScheme: "vinylplayer") { u, e in
+                let s = ASWebAuthenticationSession(url: url, callbackURLScheme: "vinylplayer") { [weak self] u, e in
+                    self?.session = nil
                     if let u { cont.resume(returning: u) } else { cont.resume(throwing: e ?? MusicError.denied) }
                 }
                 s.presentationContextProvider = self
-                s.start()
+                self.session = s
+                // start() returns false if the session could not be shown; the handler never fires then.
+                if !s.start() { self.session = nil; cont.resume(throwing: MusicError.denied) }
             }
         }
         guard let code = URLComponents(url: cb, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value
@@ -45,18 +53,24 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         await MainActor.run { startPolling() }
     }
 
+    /// Only an explicit refusal from Spotify throws `MusicError.denied`; network trouble and
+    /// server errors throw other errors so the caller keeps the saved login.
     private func tokenRequest(_ body: [String: String]) async throws {
         var r = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
         r.httpMethod = "POST"
         r.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         r.httpBody = body.map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")" }
             .joined(separator: "&").data(using: .utf8)
-        let (d, _) = try await URLSession.shared.data(for: r)
-        guard let j = try JSONSerialization.jsonObject(with: d) as? [String: Any], let t = j["access_token"] as? String
-        else { throw MusicError.denied }
+        let (d, resp) = try await URLSession.shared.data(for: r)
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
+        guard status == 200, let t = j?["access_token"] as? String else {
+            if status == 400 || status == 401 { throw MusicError.denied }
+            throw URLError(.badServerResponse)
+        }
         token = t
-        if let rt = j["refresh_token"] as? String { refresh = rt }
-        expiry = Date().addingTimeInterval((j["expires_in"] as? Double ?? 3600) - 60)
+        if let rt = j?["refresh_token"] as? String { refresh = rt }
+        expiry = Date().addingTimeInterval((j?["expires_in"] as? Double ?? 3600) - 60)
     }
 
     /// Reuse the stored refresh token so the user doesn't sign in on every launch.
@@ -67,42 +81,60 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         await MainActor.run { startPolling() }
     }
 
-    func disconnect() { timer?.invalidate(); token = nil; refresh = nil; onState?(MusicState()) }
+    func disconnect() {
+        active = false; timer?.invalidate(); timer = nil; token = nil; refresh = nil
+        onState?(MusicState())
+    }
 
-    private func call(_ method: String, _ path: String) async -> Data? {
-        if Date() > expiry, let rt = refresh {
-            try? await tokenRequest(["grant_type": "refresh_token", "refresh_token": rt, "client_id": Self.clientID])
-        }
-        guard let token else { return nil }
+    private func refreshIfNeeded() async {
+        guard Date() > expiry, let rt = refresh else { return }
+        do { try await tokenRequest(["grant_type": "refresh_token", "refresh_token": rt, "client_id": Self.clientID]) }
+        catch { expiry = Date().addingTimeInterval(30) }   // back off instead of retrying every poll
+    }
+
+    private func call(_ method: String, _ path: String) async -> (Data, Int)? {
+        await refreshIfNeeded()
+        guard active, let token else { return nil }
         var r = URLRequest(url: URL(string: "https://api.spotify.com/v1/me/player" + path)!)
         r.httpMethod = method
+        if method != "GET" { r.httpBody = Data() }
         r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        return try? await URLSession.shared.data(for: r).0
+        guard let (d, resp) = try? await URLSession.shared.data(for: r) else { return nil }
+        return (d, (resp as? HTTPURLResponse)?.statusCode ?? 0)
     }
-    func play() async { _ = await call("PUT", "/play"); await poll() }
-    func pause() async { _ = await call("PUT", "/pause"); await poll() }
-    func next() async { _ = await call("POST", "/next"); try? await Task.sleep(nanoseconds: 400_000_000); await poll() }
-    func previous() async { _ = await call("POST", "/previous"); try? await Task.sleep(nanoseconds: 400_000_000); await poll() }
-    func seek(to t: TimeInterval) async { _ = await call("PUT", "/seek?position_ms=\(Int(t * 1000))"); await poll() }
+    private func settle(_ ms: UInt64 = 350) async { try? await Task.sleep(nanoseconds: ms * 1_000_000); await poll() }
+    func play() async { _ = await call("PUT", "/play"); await settle() }
+    func pause() async { _ = await call("PUT", "/pause"); await settle() }
+    func next() async { _ = await call("POST", "/next"); await settle(500) }
+    func previous() async { _ = await call("POST", "/previous"); await settle(500) }
+    func seek(to t: TimeInterval) async { _ = await call("PUT", "/seek?position_ms=\(Int(t * 1000))"); await settle() }
 
     private func startPolling() {
+        active = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in Task { await self?.poll() } }
         Task { await poll() }
     }
 
     private func poll() async {
-        guard let d = await call("GET", "") else { return }
-        // 204 / no active device: report "connected, nothing playing" instead of staying on "Connecting".
-        guard let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let item = j["item"] as? [String: Any] else { onState?(MusicState(provider: .spotify)); return }
+        guard active, !polling else { return }
+        polling = true; defer { polling = false }
+        // Errors (401, 429, 5xx, offline) keep the last known state instead of blanking the record.
+        guard let (d, status) = await call("GET", ""), active else { return }
+        if status == 204 { onState?(MusicState(provider: .spotify)); return }   // no active device
+        guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        // Ads, podcasts and local files may have no item: report "connected, nothing playing".
+        guard let item = j["item"] as? [String: Any] else { onState?(MusicState(provider: .spotify)); return }
         let album = item["album"] as? [String: Any]
         let img = ((album?["images"] as? [[String: Any]])?.first?["url"] as? String).flatMap(URL.init)
         let artists = (item["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ") ?? ""
         var st = MusicState(provider: .spotify)
         st.isPlaying = j["is_playing"] as? Bool ?? false
         st.progress = (j["progress_ms"] as? Double ?? 0) / 1000
-        st.track = Track(id: item["id"] as? String ?? "", title: item["name"] as? String ?? "", artist: artists,
+        let title = item["name"] as? String ?? ""
+        // Local files have no id; fall back to title+artist so consecutive ones still count as a change.
+        let id = (item["id"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "\(title)|\(artists)"
+        st.track = Track(id: id, title: title, artist: artists,
                          album: album?["name"] as? String ?? "", artworkURL: img,
                          duration: (item["duration_ms"] as? Double ?? 0) / 1000)
         onState?(st)

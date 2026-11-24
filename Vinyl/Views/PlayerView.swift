@@ -7,15 +7,24 @@ import SwiftUI
     @Published var error: String?
     @Published var provider: MusicProvider?
 
+    private var artTask: Task<Void, Never>?
+    private var busy = false   // a connect or restore is running
+
     private func apply(_ s: MusicState) {
         let changed = s.track?.id != state.track?.id
         state = s
-        if changed, let u = s.track?.artworkURL {
-            Task {
-                if let (d, _) = try? await URLSession.shared.data(from: u), let i = UIImage(data: d) {
-                    withAnimation(.easeInOut(duration: 0.6)) { art = i; tint = (UserDefaults.standard.object(forKey: Pref.tint) as? Bool ?? true) ? Self.discTint(i) : Color(white: 0.06) }
-                }
-            }
+        guard changed else { return }
+        artTask?.cancel()
+        guard let u = s.track?.artworkURL else {
+            // No artwork for this item (local file, episode): don't keep the previous cover.
+            if s.track != nil || art != nil { withAnimation(.easeInOut(duration: 0.6)) { art = nil; tint = Color(white: 0.06) } }
+            return
+        }
+        let id = s.track?.id
+        artTask = Task {
+            guard let (d, _) = try? await URLSession.shared.data(from: u), let i = UIImage(data: d),
+                  !Task.isCancelled, state.track?.id == id else { return }
+            withAnimation(.easeInOut(duration: 0.6)) { art = i; tint = (UserDefaults.standard.object(forKey: Pref.tint) as? Bool ?? true) ? Self.discTint(i) : Color(white: 0.06) }
         }
     }
 
@@ -42,11 +51,13 @@ import SwiftUI
     }
 
     func connect(_ p: MusicProvider) async {
-        p.onState = { [weak self] s in Task { @MainActor in self?.apply(s) } }
+        guard !busy else { return }   // ignore double taps and taps while a restore runs
+        busy = true; defer { busy = false }
+        p.onState = { [weak self] s in Task { @MainActor in if let self, self.busy || self.provider != nil { self.apply(s) } } }
         do {
             try await p.authorize(); provider = p; error = nil
             UserDefaults.standard.set(p.kind.rawValue, forKey: Pref.lastProvider)
-        } catch { self.error = error.localizedDescription }
+        } catch { p.disconnect(); self.error = error.localizedDescription }
     }
 
     /// Called when the tint setting flips so it applies to the current record immediately.
@@ -56,21 +67,24 @@ import SwiftUI
     }
 
     func disconnect() {
-        provider?.disconnect(); provider = nil; art = nil; state = MusicState()
+        provider?.onState = nil
+        provider?.disconnect(); provider = nil; artTask?.cancel(); art = nil; tint = Color(white: 0.06); state = MusicState()
         UserDefaults.standard.removeObject(forKey: Pref.lastProvider)
     }
 
     /// Silent reconnect on launch. Falls back to onboarding if it fails.
     func restore() async {
-        guard provider == nil, let raw = UserDefaults.standard.string(forKey: Pref.lastProvider),
+        guard !busy, provider == nil, let raw = UserDefaults.standard.string(forKey: Pref.lastProvider),
               let kind = ProviderKind(rawValue: raw) else { return }
+        busy = true; defer { busy = false }
         let p: MusicProvider = kind == .spotify ? SpotifyProvider() : AppleMusicProvider()
-        p.onState = { [weak self] s in Task { @MainActor in self?.apply(s) } }
+        p.onState = { [weak self] s in Task { @MainActor in if let self, self.busy || self.provider != nil { self.apply(s) } } }
         do {
             if let sp = p as? SpotifyProvider { try await sp.restore() } else { try await p.authorize() }
             provider = p
         } catch {
-            // Only forget the provider when access was really refused, not when offline.
+            p.disconnect()
+            // Only forget the provider when access was really refused, not when offline or on a server error.
             if error is MusicError { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
         }
     }
@@ -78,7 +92,7 @@ import SwiftUI
 
 struct PlayerView: View {
     @ObservedObject var m: PlayerModel
-    @State private var showControls = CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-hidden")
+    @State private var showControls = !CommandLine.arguments.contains("-hidden")
     @State private var hideTask: Task<Void, Never>?
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
@@ -88,27 +102,20 @@ struct PlayerView: View {
             let lm = LayoutMetrics(size: g.size)
             let wide = lm.shape != .portrait
             let side = lm.recordSide
-            ZStack {
-                if wide {
-                    HStack(spacing: 24) {
-                        composition(side)
-                        VStack(spacing: 20) { info(lm.showsProgress); controls }.frame(maxWidth: .infinity)
-                    }.padding(.horizontal, 24)
-                } else {
-                    VStack(spacing: 44) {
-                        Spacer(minLength: 0)
-                        composition(side)
-                        info(lm.showsProgress)
-                        controls
-                        Spacer(minLength: 0)
-                    }
-                }
+            // One layout tree for both shapes, so the spinning disc keeps its state across rotation.
+            let layout = wide ? AnyLayout(HStackLayout(spacing: 24)) : AnyLayout(VStackLayout(spacing: 44))
+            layout {
+                composition(side)
+                VStack(spacing: wide ? 20 : 44) { info(lm.showsProgress); controls }.frame(maxWidth: wide ? .infinity : nil)
             }
+            .padding(.horizontal, wide ? 24 : 0)
             .frame(width: g.size.width, height: g.size.height)
         }
         .overlay(alignment: .top) { pill }
         .contentShape(Rectangle())
         .onTapGesture { reveal() }
+        .onAppear { if !CommandLine.arguments.contains("-demo") { reveal() } }
+        .onChange(of: autoHide) { _, on in if on { reveal() } else { hideTask?.cancel(); showControls = true } }
         .sheet(isPresented: $showSettings) { SettingsView(m: m) }
         .background {
             ZStack {
@@ -167,7 +174,7 @@ struct PlayerView: View {
         let spotify = (m.provider?.kind ?? m.state.provider) == .spotify
         let name = spotify ? "Spotify" : "Apple Music"
         // state.provider is only set once the provider has actually answered.
-        return m.state.provider == nil ? "Connecting to \(name)" : (spotify ? "Nothing playing. Press play in Spotify" : "Nothing playing. Start a song here")
+        return m.state.provider == nil ? "Connecting to \(name)" : (spotify ? "Nothing playing. Press play in Spotify" : "Apple Music connected. Playback from Lunara isn't built yet")
     }
 
     /// Controls fade out like the reference video; a tap brings them back for a few seconds.
@@ -204,6 +211,7 @@ struct PlayerView: View {
     func btn(_ icon: String, _ label: String, big: Bool = false, _ a: @escaping () async -> Void) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            reveal()
             Task { await a() }
         } label: {
             Image(systemName: icon).font(.system(size: big ? 52 : 26)).foregroundStyle(.white)

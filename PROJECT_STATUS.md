@@ -43,3 +43,18 @@ No Duo simulator or official dimensions available. The Atrium web app (Jeysxn932
 - **Lock-screen Now Playing**: for Apple Music, `ApplicationMusicPlayer` already publishes system Now Playing. For Spotify, playback happens in the Spotify app, which owns the lock screen; Lunara has no audio session, so iOS would not show its info. Faking it would not work.
 - **Widgets / Live Activity**: need an extension target (and normally an App Group); AltStore free accounts have a tight App ID limit, so this risks breaking the install. Left out until the user confirms they have a paid account or accepts the risk.
 - Apple Music has no queue UI, so nothing plays until a queue is set; Spotify is the practical path for now.
+
+## Opus review round (fixed in code; compiled in CI, NOT tested with a real account)
+- Spotify: HTTP status is now checked (401/429/5xx/offline keep the last state instead of showing "Nothing playing"); only a 400/401 from the token endpoint forgets the saved login; auth session is retained and `start()` failure handled; polls no longer overlap; late responses after disconnect are dropped; PUT/POST send an empty body; local files get a title-based id.
+- Connect/restore are guarded against double taps; disconnect also resets tint; stale artwork downloads are cancelled/ignored; items without artwork drop the previous cover.
+- Controls are now visible on a real launch and auto-hide after 4 s (previously they were hidden until a tap, only `-demo` showed them); tapping a control keeps them visible.
+- Portrait/wide use one layout tree so the disc no longer resets its spin on rotation.
+- Apple Music pill now says playback from Lunara isn't built yet instead of "Start a song here".
+
+## Known open issues (from review, not fixed)
+- Token state in `SpotifyProvider` is not actor-isolated; concurrent refreshes are possible (Spotify's refresh-token rotation behaviour unverified).
+- Offline launch shows onboarding with no retry/message even though a saved login exists.
+- Tonearm frame is ~1.25x record height, may crowd the title in portrait; near-square windows (~600x590) may clip the controls row. Not seen on screen.
+- Spotify progress advances in 3 s steps (no interpolation).
+- Apple Music library artwork URLs (`musicKit://`) may not load via URLSession.
+- Duo layouts, tint toggle, hidden-controls state, and everything on a real device remain unverified.
