@@ -65,7 +65,7 @@ No Duo simulator or official dimensions available. The Atrium web app (Jeysxn932
 - Failed restore no longer clears the Keychain token (an earlier draft did; caught in advisor review).
 
 ## Unmet requirements (be explicit)
-Widgets / Live Activity not built; custom lock-screen Now Playing not built; Apple Music cannot start playback from Lunara; Duo layout visually unverified.
+Home-screen widgets not built; label options not built; Apple Music cannot start playback from Lunara; Duo layout visually unverified.
 
 ## Install
 GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. Download, then open in AltStore (My Apps -> + -> pick Vinyl.ipa). Free Apple ID: Apple Music/MusicKit capability may not provision; Spotify path does not need it.
@@ -81,3 +81,9 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 - Playlist browser is now a 3D overlapping stack of covers (scroll transition). Verified only in demo screenshots (gradient fallback covers, no real artwork); the 3D tilt is barely visible in a still. Tapping to play a real playlist is untested.
 - CI billing: macOS minutes are 10x; the free quota was exhausted. Screenshots workflow is manual-only, builds ignore doc-only pushes. Repo is now public; the first runs after that started and succeeded, but whether they were billed is not confirmed. A $0 Actions budget is still the user's step.
 - Still untested with a real account/device: Spotify login, playlists, queue, playback, album art as label, icon, AltStore install.
+
+## Update 2026-11-24 (Live Activity, patterns, effects, themes)
+- Live Activity (`Shared/LunaraActivity.swift`, `Widgets/LunaraWidgets.swift`, `LiveActivityController`): lock-screen card plus Dynamic Island with title, artist, a timer-driven progress bar and a flat record glyph. It compiles in CI (the `LunaraWidgets` extension is embedded). NOT tested on a device. Limits: Lunara is suspended in the background, so the card cannot follow track changes while the phone is locked; it updates when you open the app, and goes stale at the track's end time. The progress bar is driven by a system timer, so it keeps moving without the app.
+- Lock-screen "Now Playing": Spotify owns the system Now Playing controls, and Lunara plays no audio, so it cannot replace them (faking `MPNowPlayingInfoCenter` would not work). The Live Activity is the Lunara-styled replacement. Apple Music already shows system Now Playing through its own player.
+- The extension has its own bundle ID (`com.example.vinyl.widgets`). With a free Apple ID in AltStore this uses a second App ID of the 10 per week; keep app extensions when AltStore asks.
+- Record patterns (plain, splatter, marble, swirl), effects (light sheen, glow, scratches and dust) and background themes (artwork, midnight, ember, ocean, forest, mono) are in Settings. Seen only in demo screenshots from CI. These are my own design, since the original brief's exact list was not available.

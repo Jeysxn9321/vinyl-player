@@ -13,3 +13,6 @@ Portrait became a full-width record with the real cover as label; vinyl colour p
 
 ## Round 2 (queue, stack, Xcode 27.2)
 Added QueueView and the 3D playlist stack; moved CI to xcode-27 / Xcode 27.2; fixed Duo screenshots (two displays); limited CI usage after the minutes ran out and made the repo public. Demo screenshots checked; nothing tested with a real Spotify account or device.
+
+## Round 3 (Live Activity, customisation)
+Added the Live Activity extension, record patterns, effects and themes. Compiles in CI; nothing seen on a device.
