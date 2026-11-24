@@ -19,10 +19,18 @@ final class ArtworkCenter: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var providers: [ArtworkProvider] {
         var p: [ArtworkProvider] = [MusicBrainzProvider()]
-        if let u = DiscogsProvider.configured { p.append(DiscogsProvider(proxy: u)) }
+        if let m = DiscogsProvider.configured { p.append(DiscogsProvider(mode: m)) }
         return p
     }
     var auto: Bool { UserDefaults.standard.object(forKey: "art.auto") as? Bool ?? true }
+
+    /// Settings changed the Discogs connection: forget cached lookups and re-query the playing album.
+    func reloadProviders() {
+        ArtworkStore.clearVariantCache()
+        guard let q = query else { return }
+        query = nil
+        albumChanged(artist: q.artist, album: q.album)
+    }
 
     /// Call when the album changes. Cheap when nothing changed.
     func albumChanged(artist: String, album: String) {

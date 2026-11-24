@@ -106,3 +106,10 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 - Tap the artist on the player: discography (albums/singles, newest first); tap an album: its songs, tap a song to play the album from there. Tap the song title: opens its album.
 - Spotify: uses artist/album IDs from the playing track (name search as fallback) via the Web API. Apple Music: public iTunes Search API for the lists, playback through the system player. Not run against live accounts; Spotify dev-mode restrictions on these endpoints are unknown.
 - Lyrics button (speech-bubble icon): lyrics from LRCLIB (free community database), time-synced when available, tap a line to seek. Spotify and Apple Music do not give lyrics to third-party apps, so songs missing from LRCLIB show "No lyrics found". Not verified live in the app; only demo-layout screenshots in CI.
+
+## Discogs connection from Settings (added, NOT run live)
+- Settings > Vinyl artwork: "Open Discogs to get your token" (opens discogs.com/settings/developers), paste field, "Connect Discogs" (one `/oauth/identity` call to validate; 401 = bad token), Disconnect.
+- The user's own personal access token lives in the device Keychain and is sent only to api.discogs.com. The app ships no Discogs key. The proxy URL remains an alternative; the token wins if both are set.
+- Direct path (`/database/search` then `/releases/{id}`) mirrors the proxy worker; never exercised against Discogs. Images stay `.unverified`.
+- Connecting/disconnecting clears cached lookups and re-queries the playing album.
+- Also undocumented until now: iPad portrait record enlargement; landscape "Vinyl artwork" button.

@@ -43,6 +43,11 @@ struct SettingsView: View {
     @AppStorage(Pref.labelSize) private var labelSize = LabelSize.medium.rawValue
     @AppStorage("art.auto") private var artAuto = true
     @AppStorage("art.discogsProxy") private var discogsProxy = ""
+    @State private var discogsToken = ""
+    @State private var discogsStatus: String?
+    @State private var discogsBusy = false
+    @State private var discogsConnected = DiscogsProvider.token != nil
+    @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -86,10 +91,36 @@ struct SettingsView: View {
                 }
                 Section {
                     Toggle("Find vinyl artwork online", isOn: $artAuto)
+                    if discogsConnected {
+                        Label("Discogs connected", systemImage: "checkmark.seal")
+                        Button("Disconnect Discogs", role: .destructive) {
+                            Keychain.set(nil, DiscogsProvider.tokenKey); discogsConnected = false; discogsStatus = nil
+                            NotificationCenter.default.post(name: .discogsChanged, object: nil)
+                        }
+                    } else {
+                        Button { openURL(URL(string: "https://www.discogs.com/settings/developers")!) } label: {
+                            Label("Open Discogs to get your token", systemImage: "safari")
+                        }
+                        SecureField("Paste your Discogs personal token", text: $discogsToken)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        Button(discogsBusy ? "Checking…" : "Connect Discogs") {
+                            let t = discogsToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !t.isEmpty else { return }
+                            discogsBusy = true; discogsStatus = nil
+                            Task {
+                                let err = await DiscogsProvider.checkToken(t)
+                                discogsBusy = false
+                                if let err { discogsStatus = err; return }
+                                Keychain.set(t, DiscogsProvider.tokenKey); discogsToken = ""; discogsConnected = true
+                                NotificationCenter.default.post(name: .discogsChanged, object: nil)
+                            }
+                        }.disabled(discogsBusy || discogsToken.trimmingCharacters(in: .whitespaces).isEmpty)
+                        if let discogsStatus { Text(discogsStatus).foregroundStyle(.orange) }
+                    }
                     TextField("Discogs proxy URL (optional)", text: $discogsProxy)
                         .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                 } header: { Text("Vinyl artwork") } footer: {
-                    Text("Looks up the album on MusicBrainz and the Cover Art Archive when a song plays. Discogs is off until you point this at your own proxy (see backend/discogs-proxy); API keys never go in the app.")
+                    Text("Looks up the album on MusicBrainz and the Cover Art Archive when a song plays. Discogs is off until you sign in at discogs.com, create a personal access token (Settings, Developers) and paste it here. The app ships no key: your token stays in this device's Keychain and is only sent to Discogs. Or use your own proxy (backend/discogs-proxy). Discogs images are never labelled as verified discs, and this has not been run against Discogs yet.")
                 }
                 Section("Effects") {
                     Toggle("Light sheen", isOn: $sheen)
@@ -112,3 +143,5 @@ struct SettingsView: View {
         .preferredColorScheme(.dark)
     }
 }
+
+extension Notification.Name { static let discogsChanged = Notification.Name("lunara.discogsChanged") }

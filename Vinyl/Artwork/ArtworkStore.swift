@@ -33,6 +33,11 @@ enum ArtworkStore {
         if let d = try? JSONEncoder().encode(Meta(date: Date(), variants: v)) { try? d.write(to: f, options: .atomic) }
     }
 
+    static func clearVariantCache() {
+        let items = (try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? []
+        for f in items where f.lastPathComponent.hasPrefix("meta-") { try? fm.removeItem(at: f) }
+    }
+
     // MARK: image cache
     /// Bytes of an image, from disk when cached. Throws on network failure; the caller decides what to show.
     static func imageData(_ url: URL) async throws -> Data {
