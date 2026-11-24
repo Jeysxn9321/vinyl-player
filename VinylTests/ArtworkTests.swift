@@ -99,6 +99,18 @@ final class ArtworkTests: XCTestCase {
         XCTAssertEqual(ranked.last?.kind, .edition)
     }
 
+    func testAutoPickOnlyTakesTaggedLabels() throws {
+        let groups = try JSONDecoder().decode(MBReleaseGroupSearch.self, from: fixture("mb_releasegroup_ram")).releaseGroups
+        let releases = try JSONDecoder().decode(MBReleaseList.self, from: fixture("mb_releases_ram")).releases
+        let box = try XCTUnwrap(releases.first { $0.id == "4375c18f-f160-44d0-ae2b-795f1dd5870f" })
+        let lp = try XCTUnwrap(releases.first { $0.id == "4867ceba-ffe7-40c0-a093-45be6c03c655" })
+        let boxV = Matching.variants(release: box, group: groups[0], index: try JSONDecoder().decode(CAAIndex.self, from: fixture("caa_ram_2023_10th")), confidence: 1, query: ram)
+        let lpV = Matching.variants(release: lp, group: groups[0], index: try JSONDecoder().decode(CAAIndex.self, from: fixture("caa_ram_2013_lp")), confidence: 1, query: ram)
+        XCTAssertNil(Matching.autoPick(Matching.rank(boxV)), "product photos are never auto-applied")
+        XCTAssertEqual(Matching.autoPick(Matching.rank(lpV))?.verification, .tagged)
+        XCTAssertNil(Matching.autoPick([]))
+    }
+
     func testVariantCodableRoundTrip() throws {
         let v = ArtworkVariant(id: "caa:1", kind: .vinylLabel, verification: .tagged, source: .musicBrainz,
                                imageURL: URL(string: "https://example.org/a.jpg"), year: "2013", confidence: 0.9)

@@ -127,6 +127,12 @@ enum Matching {
         }
     }
 
+    /// The variant shown automatically when the user has made no choice: the best community-tagged label, else nothing
+    /// (unverified edition photos are never auto-applied, so the streaming cover stays).
+    static func autoPick(_ ranked: [ArtworkVariant]) -> ArtworkVariant? {
+        ranked.first { $0.verification == .tagged && $0.kind != .edition && $0.kind != .custom }
+    }
+
     /// Order: tagged labels, then unverified, each by release confidence; duplicates (same image) dropped.
     static func rank(_ v: [ArtworkVariant]) -> [ArtworkVariant] {
         func tier(_ x: ArtworkVariant) -> Int { x.verification == .tagged ? 0 : (x.kind == .edition ? 2 : 1) }

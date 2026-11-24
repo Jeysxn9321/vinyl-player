@@ -61,6 +61,8 @@ final class ArtworkCenter: ObservableObject {
         variants = ([.streaming] + customs + found).filter { seen.insert($0.id).inserted }
         status = .done
         if let saved, !variants.contains(where: { $0.id == saved.id }) { variants.insert(saved, at: 1) }
+        // No saved choice (not even an explicit "streaming"): show the best tagged label, if any.
+        if saved == nil, current.id == ArtworkVariant.streamingID, let best = Matching.autoPick(found) { show(best) }
         loadThumbs(q)
     }
 
@@ -103,7 +105,7 @@ final class ArtworkCenter: ObservableObject {
     }
     func resetToStreaming() {
         guard let q = query else { return }
-        ArtworkStore.setDefault(nil, key: q.key); defaultID = nil
+        ArtworkStore.setDefault(.streaming, key: q.key); defaultID = ArtworkVariant.streamingID   // explicit: stays streaming next time
         show(.streaming)
     }
     func addCustom(_ image: UIImage) {

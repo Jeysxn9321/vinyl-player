@@ -45,6 +45,11 @@ import Combine
     func loadDemo() {
         state = MusicState(track: Track(id: "demo", title: "Family Matters", artist: "Demo Artist", album: "Demo",
                                         artworkURL: nil, duration: 240), isPlaying: true, progress: 83)
+        // CI only: `-artquery "Artist|Album"` runs a real artwork lookup on the demo record.
+        if let i = CommandLine.arguments.firstIndex(of: "-artquery"), i + 1 < CommandLine.arguments.count {
+            let p = CommandLine.arguments[i + 1].split(separator: "|", maxSplits: 1).map(String.init)
+            if p.count == 2 { artwork.albumChanged(artist: p[0], album: p[1]) }
+        }
         art = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 600)).image { c in
             let cg = c.cgContext
             let g = CGGradient(colorsSpace: nil, colors: [UIColor.systemOrange.cgColor, UIColor.brown.cgColor] as CFArray, locations: [0, 1])!
@@ -265,6 +270,8 @@ struct PlayerView: View {
             .onLongPressGesture(minimumDuration: 0.45) { UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showArtwork = true }
             .gesture(DragGesture(minimumDistance: 24).onEnded { g in
                 guard abs(g.translation.width) > abs(g.translation.height), abs(g.translation.width) > 30 else { return }
+                // Nothing to cycle: behave like the record, so previous/next track still works across the label.
+                if m.artwork.variants.count <= 1 { swipe(g.translation.width); return }
                 UISelectionFeedbackGenerator().selectionChanged(); m.artwork.cycle(g.translation.width < 0 ? 1 : -1)
             })
             .accessibilityLabel("Record label artwork").accessibilityHint("Double tap to change, long press for all editions")

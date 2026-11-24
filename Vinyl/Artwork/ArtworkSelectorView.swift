@@ -124,12 +124,12 @@ struct ArtworkSelectorView: View {
         }.padding(.horizontal, 20)
     }
     private func pill(_ t: String, _ icon: String) -> some View {
-        Label(t, systemImage: icon).font(.footnote.weight(.semibold)).lineLimit(1).frame(maxWidth: .infinity).padding(.vertical, 11)
+        Label(t, systemImage: icon).font(.footnote.weight(.semibold)).foregroundStyle(.white).lineLimit(1).frame(maxWidth: .infinity).padding(.vertical, 11)
             .background(Capsule().fill(lavender.opacity(0.22))).overlay(Capsule().stroke(lavender.opacity(0.4), lineWidth: 1))
     }
 
     private var attribution: some View {
-        Text("Artwork data: MusicBrainz and the Cover Art Archive (community-maintained; images remain the property of their rights holders). Images are matched automatically and may be wrong. Only images tagged as a disc by the database are called labels.")
+        Text("Artwork data: MusicBrainz and the Cover Art Archive\(DiscogsProvider.configured != nil ? ", and Discogs" : "") (community-maintained; images remain the property of their rights holders). Images are matched automatically and may be wrong. Only images tagged as a disc by the database are called labels.")
             .font(.caption2).foregroundStyle(.white.opacity(0.4)).multilineTextAlignment(.center).padding(.horizontal, 28)
     }
 }

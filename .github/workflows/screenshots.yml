@@ -46,6 +46,9 @@ jobs:
             shot queue -queue
             shot artwork -artwork
             if echo "$NAME" | grep -q "iPhone 18"; then
+              xcrun simctl launch "$UDID" com.example.vinyl -demo -artwork -artquery "Daft Punk|Random Access Memories"; sleep 40; snap "shots/${TAG}_artwork_live.png"; xcrun simctl terminate "$UDID" com.example.vinyl
+            fi
+            if echo "$NAME" | grep -q "iPhone 18"; then
               shot pat_splatter -vinylPattern splatter -vinylColor red -fxSheen YES
               shot pat_marble -vinylPattern marble -vinylColor blue -fxGlow YES
               shot pat_swirl_dust -vinylPattern swirl -vinylColor gold -fxDust YES
