@@ -134,7 +134,6 @@ final class AppleMusicProvider: MusicProvider {
                 player.stop(); useMP = true
                 if MPMediaLibrary.authorizationStatus() == .notDetermined { _ = await withCheckedContinuation { c in MPMediaLibrary.requestAuthorization { c.resume(returning: $0) } } }
                 mp.setQueue(with: [songID])
-                mp.prepareToPlay()
                 mp.play()
                 publish()
                 return nil
