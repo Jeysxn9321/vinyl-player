@@ -44,6 +44,14 @@ jobs:
             shot settings -settings
             shot browser -browser
             shot queue -queue
+            if echo "$NAME" | grep -q "iPhone 18"; then
+              shot pat_splatter -vinylPattern splatter -vinylColor red -fxSheen YES
+              shot pat_marble -vinylPattern marble -vinylColor blue -fxGlow YES
+              shot pat_swirl_dust -vinylPattern swirl -vinylColor gold -fxDust YES
+              shot theme_ember -appTheme ember -vinylColor black
+              shot theme_ocean_settings -appTheme ocean -settings
+              xcrun simctl launch "$UDID" com.example.vinyl -card; sleep 5; snap "shots/${TAG}_card.png"; xcrun simctl terminate "$UDID" com.example.vinyl
+            fi
             if echo "$NAME" | grep -q iPad; then
               shot duo_unfolded_740x540 -frame 740x540
               shot duo_portrait_800x1000 -frame 800x1000

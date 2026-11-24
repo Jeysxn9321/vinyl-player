@@ -5,6 +5,11 @@ enum Pref {
     static let tint = "tintVinyl"
     static let lastProvider = "lastProvider"
     static let vinylColor = "vinylColor"
+    static let pattern = "vinylPattern"
+    static let theme = "appTheme"
+    static let fxSheen = "fxSheen"
+    static let fxGlow = "fxGlow"
+    static let fxDust = "fxDust"
 }
 
 /// Record colour presets. "auto" follows the artwork tint.
@@ -27,6 +32,11 @@ struct SettingsView: View {
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.tint) private var tint = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
+    @AppStorage(Pref.pattern) private var pattern = VinylPattern.plain.rawValue
+    @AppStorage(Pref.theme) private var theme = AppTheme.auto.rawValue
+    @AppStorage(Pref.fxSheen) private var sheen = true
+    @AppStorage(Pref.fxGlow) private var glow = false
+    @AppStorage(Pref.fxDust) private var dust = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -53,6 +63,21 @@ struct SettingsView: View {
                                 }.frame(minWidth: 44, minHeight: 44)
                             }.buttonStyle(.plain).accessibilityLabel(c.rawValue.capitalized)
                         }
+                    }
+                }
+                Section("Record pattern") {
+                    Picker("Pattern", selection: $pattern) {
+                        ForEach(VinylPattern.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                    }.pickerStyle(.segmented)
+                }
+                Section("Effects") {
+                    Toggle("Light sheen", isOn: $sheen)
+                    Toggle("Glow", isOn: $glow)
+                    Toggle("Scratches and dust", isOn: $dust)
+                }
+                Section("Theme") {
+                    Picker("Background", selection: $theme) {
+                        ForEach(AppTheme.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                     }
                 }
                 Section("About") {

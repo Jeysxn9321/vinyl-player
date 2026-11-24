@@ -5,16 +5,19 @@ struct VinylDisc: View {
     var label: UIImage?
     var title: String = ""
     var labelScale: CGFloat = 0.34
+    var pattern: VinylPattern = .plain
+    var dust = false
     var body: some View {
         GeometryReader { g in
             let s = min(g.size.width, g.size.height)
             ZStack {
                 Circle().fill(color)
+                PatternLayer(pattern: pattern).clipShape(Circle())
                 ForEach(0..<28, id: \.self) { i in
                     Circle().inset(by: s * (0.2 + CGFloat(i) * 0.0165))
                         .stroke(Color.white.opacity(i % 3 == 0 ? 0.07 : 0.03), lineWidth: 0.6)
                 }
-                Circle().fill(AngularGradient(colors: [.clear, .white.opacity(0.16), .clear, .clear, .white.opacity(0.12), .clear], center: .center))
+                if dust { DustLayer().clipShape(Circle()) }
                 Group {
                     if let label { Image(uiImage: label).resizable().scaledToFill() } else { Color.gray }
                 }
@@ -59,6 +62,10 @@ struct SpinningDisc: View {
     var label: UIImage?
     var title: String = ""
     var labelScale: CGFloat = 0.34
+    @AppStorage(Pref.pattern) private var pattern = VinylPattern.plain.rawValue
+    @AppStorage(Pref.fxSheen) private var sheen = true
+    @AppStorage(Pref.fxGlow) private var glow = false
+    @AppStorage(Pref.fxDust) private var dust = false
     private let period = 1.8   // seconds per revolution
     @State private var accumulated = 0.0   // seconds of spin before current run
     @State private var runStart: Date?
@@ -66,9 +73,18 @@ struct SpinningDisc: View {
     var body: some View {
         TimelineView(.animation(paused: !playing)) { tl in
             let run = runStart.map { tl.date.timeIntervalSince($0) } ?? 0
-            VinylDisc(color: color, label: label, title: title, labelScale: labelScale)
+            VinylDisc(color: color, label: label, title: title, labelScale: labelScale,
+                      pattern: VinylPattern(rawValue: pattern) ?? .plain, dust: dust)
                 .rotationEffect(.degrees(((accumulated + run) / period).truncatingRemainder(dividingBy: 1) * 360))
         }
+        // Light reflections stay fixed while the record turns.
+        .overlay {
+            if sheen {
+                Circle().fill(AngularGradient(colors: [.clear, .white.opacity(0.16), .clear, .clear, .white.opacity(0.12), .clear], center: .center))
+                    .allowsHitTesting(false)
+            }
+        }
+        .shadow(color: glow ? color.opacity(0.9) : .clear, radius: glow ? 36 : 0)
         .onChange(of: playing) { _, p in
             if p { runStart = Date() }
             else if let s = runStart { accumulated += Date().timeIntervalSince(s); runStart = nil }

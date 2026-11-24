@@ -10,7 +10,16 @@ import SwiftUI
     }
     var body: some Scene {
         WindowGroup {
-            if CommandLine.arguments.contains("-demo") {
+            if CommandLine.arguments.contains("-card") {
+                // CI screenshot of the Live Activity lock-screen card (simctl cannot lock the screen).
+                ZStack {
+                    LinearGradient(colors: [.indigo, .black], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+                    NowPlayingCard(s: .init(title: "Family Matters", artist: "Demo Artist", isPlaying: true,
+                                            start: Date().addingTimeInterval(-83), end: Date().addingTimeInterval(157),
+                                            progress: 0.35, tintR: 0.9, tintG: 0.55, tintB: 0.25))
+                        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 24)).padding()
+                }
+            } else if CommandLine.arguments.contains("-demo") {
                 PlayerView(m: model).frame(width: Self.demoSize?.width, height: Self.demoSize?.height).onAppear {
                     model.loadDemo()
                     if CommandLine.arguments.contains("-pill") { model.state = MusicState(provider: .spotify) }

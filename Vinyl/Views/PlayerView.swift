@@ -12,7 +12,9 @@ import SwiftUI
 
     private func apply(_ s: MusicState) {
         let changed = s.track?.id != state.track?.id
+        let playChanged = s.isPlaying != state.isPlaying
         state = s
+        if changed || playChanged { LiveActivityController.sync(s, tint: tint) }
         guard changed else { return }
         artTask?.cancel()
         guard let u = s.track?.artworkURL else {
@@ -25,6 +27,7 @@ import SwiftUI
             guard let (d, _) = try? await URLSession.shared.data(from: u), let i = UIImage(data: d),
                   !Task.isCancelled, state.track?.id == id else { return }
             withAnimation(.easeInOut(duration: 0.6)) { art = i; tint = (UserDefaults.standard.object(forKey: Pref.tint) as? Bool ?? true) ? Self.discTint(i) : Color(white: 0.06) }
+            LiveActivityController.sync(state, tint: tint)
         }
     }
 
@@ -77,6 +80,7 @@ import SwiftUI
 
     func disconnect() {
         provider?.onState = nil
+        LiveActivityController.end()
         provider?.disconnect(); provider = nil; artTask?.cancel(); art = nil; tint = Color(white: 0.06); state = MusicState()
         UserDefaults.standard.removeObject(forKey: Pref.lastProvider)
     }
@@ -107,6 +111,7 @@ struct PlayerView: View {
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
+    @AppStorage(Pref.theme) private var theme = AppTheme.auto.rawValue
     private var discColor: Color { VinylColor(rawValue: vinylColor)?.color ?? m.tint }
 
     var body: some View {
@@ -136,7 +141,9 @@ struct PlayerView: View {
         .background {
             ZStack {
                 Color.black
-                if let a = m.art {
+                if let cs = (AppTheme(rawValue: theme) ?? .auto).colors {
+                    LinearGradient(colors: cs, startPoint: .top, endPoint: .bottom)
+                } else if let a = m.art {
                     Image(uiImage: a).resizable().scaledToFill().blur(radius: 80).opacity(0.35)
                 }
             }.ignoresSafeArea()

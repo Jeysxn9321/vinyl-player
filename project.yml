@@ -4,7 +4,9 @@ targets:
   Vinyl:
     type: application
     platform: iOS
-    sources: [Vinyl]
+    sources: [Vinyl, Shared]
+    dependencies:
+      - target: LunaraWidgets
     info:
       path: Vinyl/Info.plist
       properties:
@@ -15,11 +17,29 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes: [vinylplayer]
         LSApplicationQueriesSchemes: [spotify]
+        NSSupportsLiveActivities: true
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.example.vinyl
       MARKETING_VERSION: "0.1"
+      CURRENT_PROJECT_VERSION: "1"
       SWIFT_VERSION: "5.9"
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  LunaraWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Widgets, Shared]
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Lunara
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.example.vinyl.widgets
+      MARKETING_VERSION: "0.1"
+      CURRENT_PROJECT_VERSION: "1"
+      SWIFT_VERSION: "5.9"
+      SKIP_INSTALL: YES
   VinylTests:
     type: bundle.unit-test
     platform: iOS
