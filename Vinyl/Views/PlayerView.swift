@@ -425,9 +425,6 @@ struct PlayerView: View {
                 }.accessibilityLabel("Library")
             }
             if m.spotify != nil || (CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-ambrowser")) {
-                Button { showQueue = true } label: {
-                    Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
-                }.accessibilityLabel("Queue")
                 Button { showBrowser = true } label: {
                     Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                 }.accessibilityLabel("Playlists")
@@ -435,6 +432,9 @@ struct PlayerView: View {
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
             }.accessibilityLabel("Settings")
+            Button { showQueue = true } label: {
+                Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+            }.accessibilityLabel("Queue")
         }
         .opacity(showControls ? 1 : 0)
         .allowsHitTesting(showControls)
@@ -466,9 +466,6 @@ struct PlayerView: View {
                             }.accessibilityLabel("Library")
                         }
                         if m.spotify != nil || (CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-ambrowser")) {
-                            Button { showQueue = true } label: {
-                                Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
-                            }.accessibilityLabel("Queue")
                             Button { showBrowser = true } label: {
                                 Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                             }.accessibilityLabel("Playlists")
@@ -476,6 +473,9 @@ struct PlayerView: View {
                         Button { showSettings = true } label: {
                             Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                         }.accessibilityLabel("Settings")
+                        Button { showQueue = true } label: {
+                            Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                        }.accessibilityLabel("Queue")
                     }
         }
         .opacity(showControls ? 1 : 0)
