@@ -177,7 +177,7 @@ struct PlayerView: View {
                 Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
                 Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(tintLight).lineLimit(1)
                 if let t = m.state.track, t.duration > 0 {
-                    GlowProgress(value: min(m.state.progress, t.duration), total: t.duration, tint: tintLight).padding(.top, 14)
+                    GlowProgress(value: min(m.state.progress, t.duration), total: t.duration, tint: tintLight, onSeek: seek).padding(.top, 6)
                     HStack { Text(fmt(m.state.progress)); Spacer(); Text("-" + fmt(max(0, t.duration - m.state.progress))) }
                         .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.6))
                 }
@@ -216,6 +216,12 @@ struct PlayerView: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
+    func seek(_ t: Double) {
+        reveal()
+        if CommandLine.arguments.contains("-demo") { return }
+        Task { await m.provider?.seek(to: t) }
+    }
+
     /// Tonearm drag result: arm on the record plays, arm lifted pauses.
     func setPlaying(_ on: Bool) {
         if CommandLine.arguments.contains("-demo") { return }
@@ -248,8 +254,8 @@ struct PlayerView: View {
                     .foregroundStyle(.white)
 
                     if progress, let t = m.state.track, t.duration > 0 {
-                        ProgressView(value: min(m.state.progress, t.duration), total: t.duration)
-                            .tint(.white).padding(.horizontal, 40)
+                        GlowProgress(value: min(m.state.progress, t.duration), total: t.duration, tint: .white, onSeek: seek)
+                            .padding(.horizontal, 40)
                         HStack { Text(fmt(m.state.progress)); Spacer(); Text(fmt(t.duration)) }
                             .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 40)
                     }
@@ -346,13 +352,22 @@ struct PlayerView: View {
 
     var controls: some View {
         VStack(spacing: 18) {
-                    HStack(spacing: 44) {
+                    HStack(spacing: 30) {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
+                            Task { await m.provider?.setShuffle(!m.state.shuffle) }
+                        } label: { modeIcon("shuffle", on: m.state.shuffle) }.accessibilityLabel("Shuffle")
                         btn("backward.fill", "Previous") { await m.provider?.previous() }
                         btn(m.state.isPlaying ? "pause.circle.fill" : "play.circle.fill",
                             m.state.isPlaying ? "Pause" : "Play", big: true) {
                             if m.state.isPlaying { await m.provider?.pause() } else { await m.provider?.play() }
                         }
                         btn("forward.fill", "Next") { await m.provider?.next() }
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
+                            Task { await m.provider?.setRepeat(m.state.repeatMode.next) }
+                        } label: { modeIcon(m.state.repeatMode == .one ? "repeat.1" : "repeat", on: m.state.repeatMode != .off) }
+                            .accessibilityLabel("Repeat")
                     }
                     HStack(spacing: 20) {
                         if m.appleMusic != nil || CommandLine.arguments.contains("-ambrowser") {
@@ -392,19 +407,32 @@ struct PlayerView: View {
     }
 }
 
-/// Slim progress bar with a knob and a soft glow, like the Spotify-style reference.
+/// Slim progress bar with a knob and a soft glow. Tap or drag to seek; the seek is sent when the finger lifts.
 struct GlowProgress: View {
     var value: Double
     var total: Double
     var tint: Color
+    var onSeek: ((Double) -> Void)? = nil
+    @State private var dragFrac: Double?
     var body: some View {
         GeometryReader { g in
-            let f = total > 0 ? CGFloat(min(max(value / total, 0), 1)) : 0
+            let live = total > 0 ? min(max(value / total, 0), 1) : 0
+            let f = CGFloat(dragFrac ?? live)
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.15)).frame(height: 4)
                 Capsule().fill(tint).frame(width: g.size.width * f, height: 4).shadow(color: tint.opacity(0.7), radius: 5)
-                Circle().fill(tint).frame(width: 14, height: 14).offset(x: max(0, g.size.width * f - 7))
-            }.frame(maxHeight: .infinity)
-        }.frame(height: 16)
+                Circle().fill(tint).frame(width: dragFrac == nil ? 14 : 20, height: dragFrac == nil ? 14 : 20)
+                    .offset(x: max(0, g.size.width * f - (dragFrac == nil ? 7 : 10)))
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { v in dragFrac = Double(min(max(v.location.x / max(g.size.width, 1), 0), 1)) }
+                .onEnded { v in
+                    let fr = Double(min(max(v.location.x / max(g.size.width, 1), 0), 1))
+                    dragFrac = nil
+                    onSeek?(fr * total)
+                })
+        }.frame(height: 32)
     }
 }
