@@ -48,7 +48,6 @@ struct SettingsView: View {
     @State private var discogsStatus: String?
     @State private var discogsBusy = false
     @State private var discogsConnected = DiscogsProvider.token != nil
-    @State private var collection = CollectionStore.items()
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
@@ -125,23 +124,12 @@ struct SettingsView: View {
                     Text("Looks up the album on MusicBrainz and the Cover Art Archive when a song plays. Discogs is off until you sign in at discogs.com, create a personal access token (Settings, Developers) and paste it here. The app ships no key: your token stays in this device's Keychain and is only sent to Discogs. Or use your own proxy (backend/discogs-proxy). Discogs images are never labelled as verified discs, and this has not been run against Discogs yet.")
                 }
                 Section {
-                    if let t = m.state.track {
-                        Button("Add “\(t.title)” to the collection") {
-                            CollectionStore.add(title: t.title, artist: t.artist, image: m.discLabel)
-                            collection = CollectionStore.items(); WidgetCenter.shared.reloadAllTimelines()
-                        }
-                    } else { Text("Play a record to add it here.").foregroundStyle(.secondary) }
-                    ForEach(collection) { i in
-                        VStack(alignment: .leading) { Text(i.title); Text(i.artist).font(.caption).foregroundStyle(.secondary) }
-                    }.onDelete { idx in
-                        idx.map { collection[$0] }.forEach(CollectionStore.remove)
-                        collection = CollectionStore.items(); WidgetCenter.shared.reloadAllTimelines()
-                    }
-                    Text(SharedStore.available ? "Shared storage with the widgets: available." : "Shared storage with the widgets: NOT available on this install, so the widgets cannot show anything.")
+                    Text("Add the “Lunara collection” widget, touch and hold it, choose Edit Widget and type up to 6 albums (for example “Daft Punk Discovery”). Covers come from the Apple Music search.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text(SharedStore.available ? "Last-played widget: shared storage available." : "Last-played widget: unavailable on this install (no App Group), so it stays empty.")
                         .font(.caption).foregroundStyle(SharedStore.available ? Color.secondary : Color.orange)
-                    Text(SharedStore.report).font(.caption2.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
-                } header: { Text("Widget collection") } footer: {
-                    Text("The “Lunara collection” widget (small, medium, large) shows the records you add here. Not tested on a device yet.")
+                } header: { Text("Widgets") } footer: {
+                    Text("Not tested on a device yet.")
                 }
                 Section("Effects") {
                     Toggle("Light sheen", isOn: $sheen)

@@ -1,6 +1,7 @@
 import SwiftUI
 import WidgetKit
 import ActivityKit
+import AppIntents
 
 @main struct LunaraWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -46,15 +47,53 @@ struct LunaraRecordWidget: Widget {
     }
 }
 
-struct CollectionEntry: TimelineEntry { let date: Date; let items: [CollectionItem] }
+struct CollectionIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Collection"
+    static var description = IntentDescription("Type up to 6 albums, for example \"Daft Punk Discovery\".")
+    @Parameter(title: "Album 1") var a1: String?
+    @Parameter(title: "Album 2") var a2: String?
+    @Parameter(title: "Album 3") var a3: String?
+    @Parameter(title: "Album 4") var a4: String?
+    @Parameter(title: "Album 5") var a5: String?
+    @Parameter(title: "Album 6") var a6: String?
+    var queries: [String] { [a1, a2, a3, a4, a5, a6].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+}
 
-struct CollectionProvider: TimelineProvider {
-    func placeholder(in context: Context) -> CollectionEntry { CollectionEntry(date: Date(), items: []) }
-    func getSnapshot(in context: Context, completion: @escaping (CollectionEntry) -> Void) {
-        completion(CollectionEntry(date: Date(), items: CollectionStore.items()))
+struct CollectionEntry: TimelineEntry { let date: Date; let items: [CollectionCard] }
+
+/// Looks each album up on the Apple Music (iTunes) Search API from the widget itself, so nothing has to be shared with the app.
+enum AlbumLookup {
+    static func card(_ q: String) async -> CollectionCard? {
+        var c = URLComponents(string: "https://itunes.apple.com/search")!
+        c.queryItems = [.init(name: "term", value: q), .init(name: "entity", value: "album"), .init(name: "limit", value: "1")]
+        guard let u = c.url, let (d, _) = try? await URLSession.shared.data(from: u),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let r = (j["results"] as? [[String: Any]])?.first,
+              let title = r["collectionName"] as? String else { return nil }
+        var img: UIImage?
+        if let s = (r["artworkUrl100"] as? String)?.replacingOccurrences(of: "100x100", with: "400x400"), let iu = URL(string: s),
+           let (id, _) = try? await URLSession.shared.data(from: iu) { img = UIImage(data: id) }
+        return CollectionCard(id: q, title: title, artist: (r["artistName"] as? String) ?? "", image: img)
     }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<CollectionEntry>) -> Void) {
-        completion(Timeline(entries: [CollectionEntry(date: Date(), items: CollectionStore.items())], policy: .never))
+    static func cards(_ qs: [String]) async -> [CollectionCard] {
+        await withTaskGroup(of: (Int, CollectionCard?).self) { g in
+            for (i, q) in qs.enumerated() { g.addTask { (i, await card(q)) } }
+            var out: [(Int, CollectionCard)] = []
+            for await (i, c) in g { if let c { out.append((i, c)) } }
+            return out.sorted { $0.0 < $1.0 }.map { $0.1 }
+        }
+    }
+}
+
+struct CollectionProvider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> CollectionEntry { CollectionEntry(date: Date(), items: []) }
+    func snapshot(for configuration: CollectionIntent, in context: Context) async -> CollectionEntry {
+        CollectionEntry(date: Date(), items: await AlbumLookup.cards(Array(configuration.queries.prefix(3))))
+    }
+    func timeline(for configuration: CollectionIntent, in context: Context) async -> Timeline<CollectionEntry> {
+        let n = context.family == .systemSmall ? 1 : context.family == .systemMedium ? 3 : 6
+        let e = CollectionEntry(date: Date(), items: await AlbumLookup.cards(Array(configuration.queries.prefix(n))))
+        return Timeline(entries: [e], policy: .after(Date().addingTimeInterval(6 * 3600)))
     }
 }
 
@@ -67,12 +106,12 @@ struct CollectionWidgetRoot: View {
     }
 }
 
-/// Records the user picked in Lunara > Settings > Widget collection.
+/// Albums typed in the widget's own settings; covers come from the Apple Music search API. No App Group needed.
 struct LunaraCollectionWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "LunaraCollection", provider: CollectionProvider()) { CollectionWidgetRoot(entry: $0) }
+        AppIntentConfiguration(kind: "LunaraCollection", intent: CollectionIntent.self, provider: CollectionProvider()) { CollectionWidgetRoot(entry: $0) }
             .configurationDisplayName("Lunara collection")
-            .description("A shelf of records you chose in Lunara.")
+            .description("A shelf of albums you type in. Touch and hold, then Edit Widget.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

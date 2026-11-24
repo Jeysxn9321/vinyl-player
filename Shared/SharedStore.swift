@@ -73,50 +73,12 @@ enum SharedStore {
     }
 }
 
-/// The records the user picked for the collection widgets.
-struct CollectionItem: Codable, Identifiable, Equatable {
+/// One record in the collection widgets, already resolved (title, artist, cover).
+struct CollectionCard: Identifiable {
     var id: String
     var title: String
     var artist: String
-    var imageFile: String?
-}
-
-enum CollectionStore {
-    private static let file = "collection.json"
-    static func items() -> [CollectionItem] {
-        guard let d = SharedStore.read(file) else { return [] }
-        return (try? JSONDecoder().decode([CollectionItem].self, from: d)) ?? []
-    }
-    private static func save(_ i: [CollectionItem]) -> Bool { SharedStore.write(try? JSONEncoder().encode(i), file) }
-
-    /// Returns false when the shared folder is unavailable.
-    @discardableResult static func add(title: String, artist: String, image: UIImage?) -> Bool {
-        var all = items()
-        let id = "\(artist)|\(title)".lowercased()
-        if all.contains(where: { $0.id == id }) { return true }
-        var name: String?
-        if let image, let small = image.scaled(to: 360), let jpg = small.jpegData(compressionQuality: 0.82) {
-            let n = "c\(abs(id.hashValue)).jpg"
-            if SharedStore.write(jpg, n) { name = n }
-        }
-        all.append(CollectionItem(id: id, title: title, artist: artist, imageFile: name))
-        return save(all)
-    }
-    static func remove(_ item: CollectionItem) {
-        if let f = item.imageFile { SharedStore.write(nil, f) }
-        _ = save(items().filter { $0.id != item.id })
-    }
-    static func image(_ item: CollectionItem) -> UIImage? {
-        item.imageFile.flatMap { SharedStore.read($0) }.flatMap(UIImage.init(data:))
-    }
-}
-
-extension UIImage {
-    func scaled(to side: CGFloat) -> UIImage? {
-        let k = min(1, side / max(size.width, size.height))
-        let s = CGSize(width: size.width * k, height: size.height * k)
-        return UIGraphicsImageRenderer(size: s).image { _ in draw(in: CGRect(origin: .zero, size: s)) }
-    }
+    var image: UIImage?
 }
 
 /// One record in the collection widgets: black vinyl with the artwork as the centre label.
@@ -144,7 +106,7 @@ struct CollectionDisc: View {
 
 /// Collection widget body. Small: one record. Medium: a row of up to 3 with titles. Large: grid of up to 6.
 struct CollectionWidgetView: View {
-    var items: [CollectionItem]
+    var items: [CollectionCard]
     var family: Family
     enum Family { case small, medium, large }
 
@@ -153,7 +115,7 @@ struct CollectionWidgetView: View {
             VStack(spacing: 6) {
                 CollectionDisc(image: nil).frame(width: 54, height: 54)
                 Text("Lunara collection").font(.footnote.bold())
-                Text(SharedStore.available ? "Add records in Lunara > Settings." : "No shared storage with the app.").font(.caption2).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center)
+                Text("Edit the widget and type album names.").font(.caption2).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center)
             }.foregroundStyle(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             switch family {
@@ -168,9 +130,9 @@ struct CollectionWidgetView: View {
         }
     }
 
-    private func cell(_ i: CollectionItem, caption: Bool) -> some View {
+    private func cell(_ i: CollectionCard, caption: Bool) -> some View {
         VStack(spacing: 4) {
-            CollectionDisc(image: CollectionStore.image(i))
+            CollectionDisc(image: i.image)
             if caption {
                 Text(i.title).font(.caption2.bold()).lineLimit(1)
                 if family != .small { Text(i.artist).font(.system(size: 9)).foregroundStyle(.white.opacity(0.6)).lineLimit(1) }
