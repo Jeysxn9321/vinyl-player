@@ -112,10 +112,10 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     func previous() async { _ = await call("POST", "/previous"); await settle(500) }
     func seek(to t: TimeInterval) async { _ = await call("PUT", "/seek?position_ms=\(Int(t * 1000))"); await settle() }
 
-    struct Playlist: Identifiable, Equatable {
+    struct Playlist: Identifiable, Hashable {
         let id: String, name: String, owner: String, uri: String, imageURL: URL?
     }
-    enum BrowseError: Error, Equatable { case needsReconnect, failed }
+    enum BrowseError: Error, Equatable { case needsReconnect, forbidden, failed }
 
     /// First 50 playlists. A token saved before playlist scopes were added gets 403: report `needsReconnect`.
     func playlists() async throws -> [Playlist] {
@@ -153,6 +153,50 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         }
         let up = (j["queue"] as? [[String: Any]] ?? []).enumerated().compactMap { item($1, $0 + 1) }
         return Queue(now: item(j["currently_playing"] as? [String: Any], 0), upNext: up)
+    }
+
+    private static func song(_ o: [String: Any]?) -> SongItem? {
+        guard let o, let uri = o["uri"] as? String, uri.hasPrefix("spotify:track:"), let title = o["name"] as? String else { return nil }
+        let by = (o["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ") ?? ""
+        let imgs = (o["album"] as? [String: Any])?["images"] as? [[String: Any]] ?? []
+        let url = ((imgs.count > 1 ? imgs[1] : imgs.first)?["url"] as? String).flatMap(URL.init)
+        return SongItem(id: uri, title: title, artist: by, imageURL: url)
+    }
+
+    /// Songs of a playlist. Spotify's dev-mode rules refuse this for playlists you do not own (403 -> .forbidden).
+    func tracks(playlistID: String) async throws -> [SongItem] {
+        var res = await call("GET", "/playlists/\(playlistID)/items?limit=100", root: "")
+        if res?.1 == 404 { res = await call("GET", "/playlists/\(playlistID)/tracks?limit=100", root: "") }
+        guard let (d, status) = res else { throw BrowseError.failed }
+        if status == 401 { throw BrowseError.needsReconnect }
+        if status == 403 { throw BrowseError.forbidden }
+        guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let items = j["items"] as? [[String: Any]] else { throw BrowseError.failed }
+        return items.compactMap { Self.song(($0["track"] ?? $0["item"]) as? [String: Any]) }
+    }
+
+    /// Song search.
+    func search(_ q: String) async throws -> [SongItem] {
+        let enc = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? q
+        guard let (d, status) = await call("GET", "/search?q=\(enc)&type=track&limit=10", root: "") else { throw BrowseError.failed }
+        guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let items = (j["tracks"] as? [String: Any])?["items"] as? [[String: Any]] else { throw BrowseError.failed }
+        return items.compactMap { Self.song($0) }
+    }
+
+    /// Plays one song, inside `context` (a playlist URI) when given so the rest of it follows.
+    func play(uri: String, context: String?) async -> String? {
+        var body: [String: Any] = ["uris": [uri]]
+        if let context { body = ["context_uri": context, "offset": ["uri": uri] as [String: Any]] }
+        let data = try? JSONSerialization.data(withJSONObject: body)
+        guard let (_, status) = await call("PUT", "/play", body: data) else { return "Couldn't reach Spotify." }
+        await settle(600)
+        switch status {
+        case 200..<300: return nil
+        case 403: return "Spotify refused. Playback control needs Premium."
+        case 404: return "No active Spotify device. Open Spotify and play something once."
+        default: return "Spotify error \(status)."
+        }
     }
 
     /// Starts a playlist. Returns a message to show when Spotify refuses (no Premium / no active device).

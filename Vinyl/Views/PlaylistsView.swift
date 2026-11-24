@@ -1,12 +1,15 @@
 import SwiftUI
 
-/// Spotify playlist browser: searchable grid of covers, tap to play. Playlist tracks are not listed
-/// (Spotify's Feb 2026 dev-mode rules only allow that for playlists you own).
+/// Spotify browser: playlist covers (tap to see its songs) plus song search. Listing a playlist's songs only works
+/// for playlists you own (Spotify's Feb 2026 dev-mode rules); others can still be played whole.
 struct PlaylistsView: View {
     @ObservedObject var m: PlayerModel
     @Environment(\.dismiss) private var dismiss
     @State private var items: [SpotifyProvider.Playlist] = []
-    @State private var query = ""
+    @State private var query = UserDefaults.standard.string(forKey: "pquery") ?? ""   // `-pquery x` for CI shots
+    @State private var selected: SpotifyProvider.Playlist?
+    @State private var songs: [SongItem] = []
+    @State private var searching = false
     @State private var loading = true
     @State private var needsReconnect = false
     @State private var message: String?
@@ -30,12 +33,29 @@ struct PlaylistsView: View {
                             }
                         }.buttonStyle(.borderedProminent)
                     }.padding(30)
+                } else if !query.isEmpty {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        if !shown.isEmpty {
+                            Text("Playlists").font(.headline).padding(.top, 8)
+                            ForEach(shown) { p in
+                                Button { selected = p } label: {
+                                    SongRow(s: SongItem(id: p.id, title: p.name, artist: "Playlist", imageURL: p.imageURL), showsPlay: false)
+                                }.buttonStyle(.plain).padding(.vertical, 4)
+                            }
+                        }
+                        Text("Songs").font(.headline).padding(.top, 12)
+                        if searching { ProgressView() }
+                        else if songs.isEmpty { Text(query.count < 2 ? "Keep typing to search Spotify." : "No songs found.").foregroundStyle(.secondary) }
+                        ForEach(songs) { s in
+                            Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).padding(.vertical, 4)
+                        }
+                    }.padding(.horizontal, 20)
                 } else if shown.isEmpty {
                     Text(items.isEmpty ? "No playlists found." : "No match.").foregroundStyle(.secondary).padding(.top, 60)
                 } else {
                     LazyVStack(spacing: -170) {
                         ForEach(shown) { p in
-                            Button { Task { await play(p) } } label: { cover(p) }
+                            Button { selected = p } label: { cover(p) }
                                 .buttonStyle(.plain)
                                 .scrollTransition(axis: .vertical) { content, phase in
                                     content
@@ -50,7 +70,11 @@ struct PlaylistsView: View {
                 }
                 if let message { Text(message).font(.footnote).foregroundStyle(.orange).padding() }
             }
-            .searchable(text: $query, prompt: "Search playlists")
+            .searchable(text: $query, prompt: "Search playlists and songs")
+            .task(id: query) { await search() }
+            .navigationDestination(item: $selected) { p in
+                SpotifyTracksView(m: m, playlist: p, onPlayed: { dismiss() })
+            }
             .navigationTitle("Playlists")
             .toolbar { Button("Done") { dismiss() } }
             .task { await load() }
@@ -84,6 +108,7 @@ struct PlaylistsView: View {
         if demo {
             items = ["Liked Mix", "Late Night Drive", "Archivos Eladio", "Bad Bunny Essentials", "Chill Sunday", "Top Songs 2026"]
                 .enumerated().map { .init(id: "\($0.offset)", name: $0.element, owner: "Demo", uri: "spotify:playlist:\($0.offset)", imageURL: nil) }
+            if CommandLine.arguments.contains("-ptracks") { selected = items.first }
             return
         }
         do { items = try await m.spotify?.playlists() ?? [] }
@@ -91,8 +116,18 @@ struct PlaylistsView: View {
         catch { message = "Couldn't load playlists. Check your connection." }
     }
 
-    func play(_ p: SpotifyProvider.Playlist) async {
+    func playSong(_ s: SongItem) async {
         if demo { dismiss(); return }
-        if let e = await m.spotify?.play(contextURI: p.uri) { message = e } else { dismiss() }
+        if let e = await m.spotify?.play(uri: s.id, context: nil) { message = e } else { dismiss() }
+    }
+
+    func search() async {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard q.count >= 2 else { songs = []; return }
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        guard !Task.isCancelled else { return }
+        searching = true; defer { searching = false }
+        if demo { songs = DemoSongs.all; return }
+        songs = (try? await m.spotify?.search(q)) ?? []
     }
 }

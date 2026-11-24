@@ -19,6 +19,8 @@ final class AppleMusicProvider: MusicProvider {
     private var timer: Timer?
     private var playlists: [String: Playlist] = [:]
     private var albums: [String: Album] = [:]
+    private var current: [MusicKit.Track] = []   // songs of the album/playlist whose list is open
+    private var found: [String: Song] = [:]      // last catalog search
 
     func authorize() async throws {
         let s = await MusicAuthorization.request()
@@ -54,6 +56,42 @@ final class AppleMusicProvider: MusicProvider {
                               imageURL: a.artwork?.url(width: 600, height: 600), isAlbum: true))
         }
         return out
+    }
+
+    func tracks(of item: AMItem) async throws -> [SongItem] {
+        var list: [MusicKit.Track] = []
+        if item.isAlbum, let a = albums[item.id] { list = Array(try await a.with([.tracks]).tracks ?? []) }
+        else if let p = playlists[item.id] { list = Array(try await p.with([.tracks]).tracks ?? []) }
+        current = list
+        return list.map { SongItem(id: $0.id.rawValue, title: $0.title, artist: $0.artistName,
+                                   imageURL: $0.artwork?.url(width: 200, height: 200)) }
+    }
+
+    /// Apple Music catalog song search (needs an active subscription).
+    func search(_ q: String) async throws -> [SongItem] {
+        var r = MusicCatalogSearchRequest(term: q, types: [Song.self])
+        r.limit = 15
+        let res = try await r.response()
+        found = [:]
+        for s in res.songs { found[s.id.rawValue] = s }
+        return res.songs.map { SongItem(id: $0.id.rawValue, title: $0.title, artist: $0.artistName,
+                                        imageURL: $0.artwork?.url(width: 200, height: 200)) }
+    }
+
+    /// Plays one song: inside its open album/playlist (fromList) or alone from search results.
+    func play(songID: String, fromList: Bool) async -> String? {
+        do {
+            if fromList, let t = current.first(where: { $0.id.rawValue == songID }) {
+                player.queue = ApplicationMusicPlayer.Queue(for: current, startingAt: t)
+            } else if let s = found[songID] {
+                player.queue = ApplicationMusicPlayer.Queue(for: [s])
+            } else { return "That song is no longer available. Go back and reopen it." }
+            try await player.play()
+            publish()
+            return nil
+        } catch {
+            return "Couldn't start playback: \(error.localizedDescription)"
+        }
     }
 
     /// Starts playback of a library item. Returns an error message, or nil on success.

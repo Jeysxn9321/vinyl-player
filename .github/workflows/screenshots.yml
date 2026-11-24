@@ -53,6 +53,10 @@ jobs:
               shot label_text_large -labelStyle text -labelSize large -vinylColor red
               shot label_solid_small -labelStyle solid -labelSize small -vinylColor blue
               shot am_library -ambrowser
+              shot sp_tracks -browser -ptracks
+              shot sp_search -browser -pquery neon
+              shot am_tracks -ambrowser -amtracks
+              shot am_search -ambrowser -amquery neon
               xcrun simctl launch "$UDID" com.example.vinyl -widget; sleep 5; snap "shots/${TAG}_widget.png"; xcrun simctl terminate "$UDID" com.example.vinyl
               xcrun simctl launch "$UDID" com.example.vinyl -card; sleep 5; snap "shots/${TAG}_card.png"; xcrun simctl terminate "$UDID" com.example.vinyl
             fi
