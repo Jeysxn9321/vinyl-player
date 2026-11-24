@@ -22,3 +22,8 @@ Added the Live Activity extension, record patterns, effects and themes. Compiles
 - `AppleMusicProvider.library()/play(_:)`, `AppleMusicLibraryView`, `PlayerModel.appleMusic`, `-ambrowser` CI flag.
 - `Shared/WidgetData.swift` (`WidgetSnapshot` in App Group defaults, `RecordWidgetView`), `LunaraRecordWidget` in the bundle, snapshot written from `LiveActivityController.sync`, `-widget` CI flag.
 - Entitlements files + `ALTAppGroups` in both Info.plists. IPA build now prints `codesign -d --entitlements`: result was "not signed at all" for app and appex.
+
+## 2026-11-24 (vinyl artwork variants)
+- New `Vinyl/Artwork/*` (models, Matching, MusicBrainz/CAA provider with rate limiter + backoff, Discogs proxy provider, ArtworkStore, ArtworkCenter, ArtworkSelectorView), `VinylTests/ArtworkTests.swift` + 4 recorded fixtures, `backend/discogs-proxy/`.
+- PlayerModel owns an `ArtworkCenter`; `discLabel` feeds both `SpinningDisc`s; label overlay gestures (tap/swipe/long-press); utility-row button; Settings section; `-artwork` CI flag + screenshot.
+- Unit tests pass in CI; nothing run on a device; Discogs never run live.
