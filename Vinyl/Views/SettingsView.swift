@@ -41,6 +41,8 @@ struct SettingsView: View {
     @AppStorage(Pref.fxDust) private var dust = false
     @AppStorage(Pref.labelStyle) private var labelStyle = LabelStyle.artwork.rawValue
     @AppStorage(Pref.labelSize) private var labelSize = LabelSize.medium.rawValue
+    @AppStorage("art.auto") private var artAuto = true
+    @AppStorage("art.discogsProxy") private var discogsProxy = ""
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -81,6 +83,13 @@ struct SettingsView: View {
                     Picker("Size", selection: $labelSize) {
                         ForEach(LabelSize.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                     }.pickerStyle(.segmented)
+                }
+                Section {
+                    Toggle("Find vinyl artwork online", isOn: $artAuto)
+                    TextField("Discogs proxy URL (optional)", text: $discogsProxy)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                } header: { Text("Vinyl artwork") } footer: {
+                    Text("Looks up the album on MusicBrainz and the Cover Art Archive when a song plays. Discogs is off until you point this at your own proxy (see backend/discogs-proxy); API keys never go in the app.")
                 }
                 Section("Effects") {
                     Toggle("Light sheen", isOn: $sheen)

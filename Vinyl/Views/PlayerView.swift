@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 @MainActor final class PlayerModel: ObservableObject {
     @Published var state = MusicState()
@@ -6,6 +7,13 @@ import SwiftUI
     @Published var tint: Color = Color(white: 0.06)
     @Published var error: String?
     @Published var provider: MusicProvider?
+
+    let artwork = ArtworkCenter()
+    private var artBag: AnyCancellable?
+    /// What the disc label shows: a chosen vinyl/custom artwork if any, otherwise the streaming cover.
+    var discLabel: UIImage? { artwork.label ?? art }
+
+    init() { artBag = artwork.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() } }
 
     private var artTask: Task<Void, Never>?
     private var busy = false   // a connect or restore is running
@@ -16,6 +24,8 @@ import SwiftUI
         state = s
         if changed || playChanged { LiveActivityController.sync(s, tint: tint) }
         guard changed else { return }
+        if let t = s.track, !CommandLine.arguments.contains("-demo") { artwork.albumChanged(artist: t.artist, album: t.album) }
+        else if s.track == nil { artwork.albumChanged(artist: "", album: "") }
         artTask?.cancel()
         guard let u = s.track?.artworkURL else {
             // No artwork for this item (local file, episode): don't keep the previous cover.
@@ -111,6 +121,8 @@ struct PlayerView: View {
     @State private var showQueue = CommandLine.arguments.contains("-queue")
     @State private var showAM = CommandLine.arguments.contains("-ambrowser")
     @State private var showSettings = CommandLine.arguments.contains("-settings")
+    @State private var showArtwork = CommandLine.arguments.contains("-artwork")
+    @AppStorage(Pref.labelSize) private var labelSizePref = LabelSize.medium.rawValue
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
     @AppStorage(Pref.theme) private var theme = AppTheme.auto.rawValue
@@ -146,6 +158,7 @@ struct PlayerView: View {
         .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }
         .sheet(isPresented: $showQueue) { QueueView(m: m) }
         .sheet(isPresented: $showAM) { AppleMusicLibraryView(m: m) }
+        .sheet(isPresented: $showArtwork) { ArtworkSelectorView(art: m.artwork, streamingCover: m.art) }
         .background {
             ZStack {
                 Color.black
@@ -180,10 +193,11 @@ struct PlayerView: View {
             Circle().fill(tintLight.opacity(0.22))   // soft purple haze behind the record
                 .frame(width: d * 1.08, height: d * 1.08).blur(radius: 34)
                 .offset(x: x0 - d * 0.04, y: y0 - d * 0.04)
-            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.discLabel, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
                 .frame(width: d, height: d)
                 .contentShape(Circle()).discGestures(swipe: swipe, tap: discTapped)
                 .offset(x: x0, y: y0)
+            labelTarget(d).offset(x: x0 + d * (1 - labelFrac) / 2, y: y0 + d * (1 - labelFrac) / 2)
             Circle().strokeBorder(rim, lineWidth: 5)   // uneven glowing rim: bright arcs bottom-left and top-left
                 .frame(width: d, height: d)
                 .blur(radius: 1)
@@ -236,6 +250,26 @@ struct PlayerView: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
+    var labelFrac: CGFloat { (LabelSize(rawValue: labelSizePref) ?? .medium).scaled(0.46) }
+
+    /// Invisible target over the centre label: tap or swipe cycles the artwork, long-press opens the selector.
+    /// Does not touch the spinning disc underneath, so rotation and playback are unaffected.
+    func labelTarget(_ d: CGFloat) -> some View {
+        Circle().fill(Color.white.opacity(0.001))
+            .frame(width: d * labelFrac, height: d * labelFrac)
+            .onTapGesture {
+                if m.state.track == nil { discTapped() }
+                else if m.artwork.variants.count > 1 { UISelectionFeedbackGenerator().selectionChanged(); m.artwork.cycle(1) }
+                else { showArtwork = true }
+            }
+            .onLongPressGesture(minimumDuration: 0.45) { UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showArtwork = true }
+            .gesture(DragGesture(minimumDistance: 24).onEnded { g in
+                guard abs(g.translation.width) > abs(g.translation.height), abs(g.translation.width) > 30 else { return }
+                UISelectionFeedbackGenerator().selectionChanged(); m.artwork.cycle(g.translation.width < 0 ? 1 : -1)
+            })
+            .accessibilityLabel("Record label artwork").accessibilityHint("Double tap to change, long press for all editions")
+    }
+
     /// Swipe on the record: left = previous track, right = next track (as the user asked).
     func swipe(_ dx: CGFloat) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
@@ -269,10 +303,11 @@ struct PlayerView: View {
             Circle().fill(tintLight.opacity(0.22))   // soft haze behind the record
                 .frame(width: side * 1.08, height: side * 1.08).blur(radius: 34)
                 .offset(x: discX - side * 0.04, y: -side * 0.04)
-            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.discLabel, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
                 .frame(width: side, height: side)
                 .contentShape(Circle()).discGestures(swipe: swipe, tap: discTapped)
                 .offset(x: discX)
+            labelTarget(side).offset(x: discX + side * (1 - labelFrac) / 2, y: side * (1 - labelFrac) / 2)
             Circle().strokeBorder(rim, lineWidth: 5)   // uneven glowing rim
                 .frame(width: side, height: side).blur(radius: 1)
                 .shadow(color: tintLight.opacity(0.9), radius: 12).shadow(color: tintLight.opacity(0.6), radius: 30)
@@ -345,6 +380,7 @@ struct PlayerView: View {
             }
             Button { showSettings = true } label: { utilIcon("gearshape") }.accessibilityLabel("Settings")
             Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
+            Button { showArtwork = true } label: { utilIcon("opticaldisc") }.accessibilityLabel("Vinyl artwork")
             Spacer()
         }
         .opacity(showControls ? 1 : 0).allowsHitTesting(showControls)

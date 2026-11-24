@@ -26,7 +26,7 @@ struct VinylDisc: View {
                 }
                 if dust { DustLayer().clipShape(Circle()) }
                 Group {
-                    if labelStyle == .artwork, let label { Image(uiImage: label).resizable().scaledToFill() }
+                    if labelStyle == .artwork, let label { Image(uiImage: label).resizable().scaledToFill().id(ObjectIdentifier(label)).transition(.opacity) }
                     else if labelStyle == .artwork { Color.gray }
                     else { Circle().fill(color).overlay(Circle().fill(Color.white.opacity(0.28))) }
                 }
