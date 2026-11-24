@@ -54,6 +54,7 @@ struct Tonearm: View {
     var playing: Bool
     var length: CGFloat = 200
     var playAngle: Double = 24
+    var glow: Color = .white   // stylus glow
     /// Drag the arm onto the record to start, off it to stop. Called with the wanted playing state.
     var onSet: ((Bool) -> Void)? = nil
     @State private var drag: Double?   // live angle while the finger is down
@@ -63,28 +64,32 @@ struct Tonearm: View {
         let W = w * 2.2, H = length + w * 2, cx = W / 2
         let silver = LinearGradient(colors: [Color(white: 0.95), Color(white: 0.55), Color(white: 0.9)], startPoint: .leading, endPoint: .trailing)
         ZStack {
-            // Thin arm: straight, then curving in toward the record.
-            Path { p in
+            // Chrome tube: leaves the base, runs down, bends in toward the record at the end.
+            let arm = Path { p in
                 p.move(to: CGPoint(x: cx, y: w * 1.1))
-                p.addLine(to: CGPoint(x: cx, y: w + length * 0.7))
-                p.addCurve(to: CGPoint(x: cx - w * 0.5, y: w + length + w * 0.05),
-                           control1: CGPoint(x: cx, y: w + length * 0.9),
-                           control2: CGPoint(x: cx - w * 0.5, y: w + length * 0.88))
+                p.addLine(to: CGPoint(x: cx, y: w + length * 0.62))
+                p.addCurve(to: CGPoint(x: cx - w * 0.62, y: w + length * 0.98),
+                           control1: CGPoint(x: cx, y: w + length * 0.84),
+                           control2: CGPoint(x: cx - w * 0.62, y: w + length * 0.8))
             }
-            .stroke(silver, style: StrokeStyle(lineWidth: max(3, w * 0.17), lineCap: .round, lineJoin: .round))
-            .shadow(color: .black.opacity(0.5), radius: 4, x: 2, y: 3)
-            // Angled, rounded headshell with a glowing stylus tip.
+            arm.stroke(Color(white: 0.12), style: StrokeStyle(lineWidth: max(5, w * 0.24), lineCap: .round, lineJoin: .round))
+                .shadow(color: .black.opacity(0.6), radius: 5, x: 3, y: 4)
+            arm.stroke(silver, style: StrokeStyle(lineWidth: max(4, w * 0.19), lineCap: .round, lineJoin: .round))
+            arm.stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: max(1, w * 0.04), lineCap: .round, lineJoin: .round))
+                .offset(x: -w * 0.03)
+            // Angled headshell with a logo dot and a glowing stylus tip.
             ZStack {
-                RoundedRectangle(cornerRadius: w * 0.22)
-                    .fill(LinearGradient(colors: [Color(white: 0.28), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
-                    .overlay(RoundedRectangle(cornerRadius: w * 0.22).stroke(Color.white.opacity(0.55), lineWidth: 1))
-                    .frame(width: w * 0.62, height: w * 1.25)
-                Circle().fill(Color.white).frame(width: w * 0.2)
-                    .shadow(color: .white, radius: 6).shadow(color: .white.opacity(0.8), radius: 12)
-                    .offset(y: w * 0.5)
+                RoundedRectangle(cornerRadius: w * 0.16)
+                    .fill(LinearGradient(colors: [Color(white: 0.3), Color(white: 0.06)], startPoint: .top, endPoint: .bottom))
+                    .overlay(RoundedRectangle(cornerRadius: w * 0.16).stroke(Color.white.opacity(0.5), lineWidth: 1))
+                    .frame(width: w * 0.7, height: w * 1.4)
+                Circle().fill(glow.opacity(0.9)).frame(width: w * 0.24).offset(y: -w * 0.1)
+                Capsule().fill(Color.white).frame(width: w * 0.1, height: w * 0.2)
+                    .shadow(color: glow, radius: 5).shadow(color: glow, radius: 12)
+                    .offset(y: w * 0.72)
             }
-            .rotationEffect(.degrees(-14))
-            .position(x: cx - w * 0.62, y: w + length + w * 0.5)
+            .rotationEffect(.degrees(-24))
+            .position(x: cx - w * 0.78, y: w + length + w * 0.45)
             .shadow(color: .black.opacity(0.6), radius: 5, y: 3)
             // Big round brushed-metal base.
             Circle()

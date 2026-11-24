@@ -157,21 +157,32 @@ struct PlayerView: View {
     /// Full-screen record: disc fills the width with the real cover as its label, tonearm at the right edge,
     /// title bottom-left, controls underneath.
     func portrait(_ size: CGSize) -> some View {
-        let d = min(size.width * 1.02, size.height * 0.58)
+        let d = min(size.width * 0.86, size.height * 0.52)
+        let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.07
+        let rim = AngularGradient(stops: [
+            .init(color: tintLight.opacity(0.12), location: 0.0), .init(color: tintLight.opacity(0.25), location: 0.2),
+            .init(color: tintLight.opacity(0.7), location: 0.3), .init(color: tintLight, location: 0.4),
+            .init(color: tintLight.opacity(0.9), location: 0.5), .init(color: tintLight.opacity(0.3), location: 0.58),
+            .init(color: tintLight.opacity(0.7), location: 0.65), .init(color: tintLight, location: 0.72),
+            .init(color: tintLight.opacity(0.35), location: 0.8), .init(color: tintLight.opacity(0.12), location: 0.92),
+            .init(color: tintLight.opacity(0.12), location: 1.0)], center: .center)
+        let armLen = size.width * 0.46
+        let aw = armLen * 0.16
         return ZStack(alignment: .topLeading) {
-            Circle().fill(tintLight.opacity(0.18))
-                .frame(width: d * 1.04, height: d * 1.04).blur(radius: 24)
-                .offset(x: (size.width - d * 1.04) / 2, y: size.height * 0.07 - d * 0.02)
-            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.44, inlineTitle: false)
+            Circle().fill(tintLight.opacity(0.22))   // soft purple haze behind the record
+                .frame(width: d * 1.08, height: d * 1.08).blur(radius: 34)
+                .offset(x: x0 - d * 0.04, y: y0 - d * 0.04)
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
                 .frame(width: d, height: d)
-                .offset(x: (size.width - d) / 2, y: size.height * 0.07)
-            Circle().strokeBorder(tintLight, lineWidth: 5)   // glowing accent rim, on top of the record edge
+                .offset(x: x0, y: y0)
+            Circle().strokeBorder(rim, lineWidth: 5)   // uneven glowing rim: bright arcs bottom-left and top-left
                 .frame(width: d, height: d)
-                .shadow(color: tintLight, radius: 10).shadow(color: tintLight.opacity(0.8), radius: 28)
+                .blur(radius: 1)
+                .shadow(color: tintLight.opacity(0.9), radius: 12).shadow(color: tintLight.opacity(0.6), radius: 30)
                 .allowsHitTesting(false)
-                .offset(x: (size.width - d) / 2, y: size.height * 0.07)
-            Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 10, onSet: setPlaying)
-                .offset(x: size.width - d * 0.22, y: size.height * 0.05)
+                .offset(x: x0, y: y0)
+            Tonearm(playing: m.state.isPlaying, length: armLen, playAngle: 12, glow: tintLight, onSet: setPlaying)
+                .offset(x: size.width * 0.885 - aw * 1.1, y: y0 + d * 0.03 - aw * 1.1)
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
                 Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
