@@ -122,12 +122,11 @@ struct PlayerView: View {
             let wide = lm.shape != .portrait
             let side = lm.recordSide
             if wide {
-                HStack(spacing: 24) {
-                    composition(side)
-                    VStack(spacing: 20) { info(lm.showsProgress); controls }.frame(maxWidth: .infinity)
-                }
-                .padding(.horizontal, 24)
-                .frame(width: g.size.width, height: g.size.height)
+                // Landscape: just the sleeve and the record, as large as fits. Tap to play or pause.
+                composition(side)
+                    .frame(width: g.size.width, height: g.size.height)
+                    .contentShape(Rectangle())
+                    .onTapGesture { setPlaying(!m.state.isPlaying) }
             } else {
                 portrait(g.size)
             }
@@ -250,10 +249,8 @@ struct PlayerView: View {
                         }
                         .frame(width: side, height: side).clipped()
                         .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
-                        Tonearm(playing: m.state.isPlaying, length: side * 0.75, onSet: setPlaying)
-                            .offset(x: side * 1.78, y: 0)
         }
-        .frame(width: side * 2.05, height: side, alignment: .topLeading)
+        .frame(width: side * 1.82, height: side, alignment: .topLeading)
         .accessibilityHidden(true)
     }
     func info(_ progress: Bool) -> some View {
