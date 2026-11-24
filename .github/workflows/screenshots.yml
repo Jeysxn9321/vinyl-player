@@ -2,7 +2,9 @@ name: Simulator screenshots
 on: [workflow_dispatch, push]
 jobs:
   shots:
-    runs-on: macos-15
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen && xcodegen
@@ -13,8 +15,8 @@ jobs:
       - name: Run and capture
         run: |
           mkdir -p shots
-          xcrun simctl list devices available | grep -E "iPhone 1[67] Pro Max|iPad Pro" | head -5
-          for NAME in "iPhone 16 Pro Max" "iPad Pro 13-inch (M4)"; do
+          xcrun simctl list devices available | grep -E "iPhone 18 Pro Max|iPad Pro|Duo"
+          for NAME in "iPhone 18 Pro Max" "iPad Pro 13-inch (M5)" "iPhone Duo"; do
             UDID=$(xcrun simctl list devices available | grep "$NAME (" | head -1 | grep -oE '[0-9A-F-]{36}')
             [ -z "$UDID" ] && { echo "no $NAME"; continue; }
             xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
@@ -34,6 +36,7 @@ jobs:
             shot pill -pill -hidden
             shot settings -settings
             shot browser -browser
+            shot queue -queue
             if echo "$NAME" | grep -q iPad; then
               shot duo_unfolded_740x540 -frame 740x540
               shot duo_portrait_800x1000 -frame 800x1000

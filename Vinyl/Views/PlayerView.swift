@@ -103,6 +103,7 @@ struct PlayerView: View {
     @State private var showControls = !CommandLine.arguments.contains("-hidden")
     @State private var hideTask: Task<Void, Never>?
     @State private var showBrowser = CommandLine.arguments.contains("-browser")
+    @State private var showQueue = CommandLine.arguments.contains("-queue")
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
@@ -131,6 +132,7 @@ struct PlayerView: View {
         .onChange(of: autoHide) { _, on in if on { reveal() } else { hideTask?.cancel(); showControls = true } }
         .sheet(isPresented: $showSettings) { SettingsView(m: m) }
         .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }
+        .sheet(isPresented: $showQueue) { QueueView(m: m) }
         .background {
             ZStack {
                 Color.black
@@ -229,7 +231,7 @@ struct PlayerView: View {
     }
 
     var controlsRow: some View {
-        HStack(spacing: 36) {
+        HStack(spacing: 24) {
             btn(m.state.isPlaying ? "pause.fill" : "play.fill", m.state.isPlaying ? "Pause" : "Play") {
                 if m.state.isPlaying { await m.provider?.pause() } else { await m.provider?.play() }
             }
@@ -237,6 +239,9 @@ struct PlayerView: View {
             btn("backward.fill", "Previous") { await m.provider?.previous() }
             btn("forward.fill", "Next") { await m.provider?.next() }
             if m.spotify != nil || CommandLine.arguments.contains("-demo") {
+                Button { showQueue = true } label: {
+                    Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                }.accessibilityLabel("Queue")
                 Button { showBrowser = true } label: {
                     Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                 }.accessibilityLabel("Playlists")
@@ -261,6 +266,9 @@ struct PlayerView: View {
                     }
                     HStack(spacing: 20) {
                         if m.spotify != nil || CommandLine.arguments.contains("-demo") {
+                            Button { showQueue = true } label: {
+                                Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                            }.accessibilityLabel("Queue")
                             Button { showBrowser = true } label: {
                                 Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                             }.accessibilityLabel("Playlists")

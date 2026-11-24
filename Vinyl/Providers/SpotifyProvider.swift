@@ -132,6 +132,29 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         }
     }
 
+    struct QueueItem: Identifiable, Equatable {
+        let id: Int, title: String, subtitle: String, imageURL: URL?
+    }
+    struct Queue: Equatable { var now: QueueItem?; var upNext: [QueueItem] }
+
+    /// `GET /me/player/queue`. Items may be tracks or episodes, so every field is optional.
+    func queue() async throws -> Queue {
+        guard let (d, status) = await call("GET", "/queue") else { throw BrowseError.failed }
+        if status == 401 || status == 403 { throw BrowseError.needsReconnect }
+        guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { throw BrowseError.failed }
+        func item(_ o: [String: Any]?, _ n: Int) -> QueueItem? {
+            guard let o, let title = o["name"] as? String else { return nil }
+            let show = o["show"] as? [String: Any]
+            let by = (o["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ")
+                ?? (show?["name"] as? String) ?? ""
+            let imgs = ((o["album"] as? [String: Any])?["images"] as? [[String: Any]]) ?? (o["images"] as? [[String: Any]])
+                ?? (show?["images"] as? [[String: Any]])
+            return QueueItem(id: n, title: title, subtitle: by, imageURL: (imgs?.first?["url"] as? String).flatMap(URL.init))
+        }
+        let up = (j["queue"] as? [[String: Any]] ?? []).enumerated().compactMap { item($1, $0 + 1) }
+        return Queue(now: item(j["currently_playing"] as? [String: Any], 0), upNext: up)
+    }
+
     /// Starts a playlist. Returns a message to show when Spotify refuses (no Premium / no active device).
     func play(contextURI: String) async -> String? {
         let body = try? JSONSerialization.data(withJSONObject: ["context_uri": contextURI])
