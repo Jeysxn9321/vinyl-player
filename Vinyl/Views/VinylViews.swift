@@ -48,6 +48,10 @@ struct Tonearm: View {
     var playing: Bool
     var length: CGFloat = 200
     var playAngle: Double = 24
+    /// Drag the arm onto the record to start, off it to stop. Called with the wanted playing state.
+    var onSet: ((Bool) -> Void)? = nil
+    @State private var drag: Double?   // live angle while the finger is down
+    private let restAngle = 4.0
     var body: some View {
         let w = length * 0.16
         ZStack(alignment: .top) {
@@ -60,8 +64,21 @@ struct Tonearm: View {
             Circle().fill(Color(white: 0.2)).frame(width: w * 0.9)            // pivot cap
         }
         .frame(width: w * 2.2, height: length + w * 2, alignment: .top)
-        .rotationEffect(.degrees(playing ? playAngle : 4), anchor: .init(x: 0.5, y: w / (length + w * 2)))
+        .contentShape(Rectangle())
+        .rotationEffect(.degrees(drag ?? (playing ? playAngle : restAngle)), anchor: .init(x: 0.5, y: w / (length + w * 2)))
+        .animation(drag == nil ? .spring(response: 1.0, dampingFraction: 0.8) : nil, value: drag)
         .animation(.spring(response: 1.0, dampingFraction: 0.8), value: playing)
+        .gesture(DragGesture(minimumDistance: 2)
+            .onChanged { g in
+                let base = playing ? playAngle : restAngle
+                // Swinging the tip left (dragging left) lowers it onto the record.
+                drag = min(max(base - Double(g.translation.width) / Double(length) * 57, restAngle), playAngle + 2)
+            }
+            .onEnded { _ in
+                let want = (drag ?? restAngle) > (restAngle + playAngle) / 2
+                drag = nil
+                if want != playing { onSet?(want) }
+            }, including: onSet == nil ? .none : .all)
     }
 }
 
@@ -80,7 +97,7 @@ struct SpinningDisc: View {
     @AppStorage(Pref.labelSize) private var labelSize = LabelSize.medium.rawValue
     /// Portrait passes the real title but only shows it on the label for the "Title" style.
     var inlineTitle = true
-    private let period = 1.8   // seconds per revolution
+    private let period = 3.6   // seconds per revolution (slowed from 1.8, which looked too fast)
     @State private var accumulated = 0.0   // seconds of spin before current run
     @State private var runStart: Date?
 

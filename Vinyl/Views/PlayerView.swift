@@ -162,7 +162,7 @@ struct PlayerView: View {
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.44, inlineTitle: false)
                 .frame(width: d, height: d)
                 .offset(x: (size.width - d) / 2, y: size.height * 0.07)
-            Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 10)
+            Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 10, onSet: setPlaying)
                 .offset(x: size.width - d * 0.22, y: size.height * 0.05)
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
@@ -180,6 +180,12 @@ struct PlayerView: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
+    /// Tonearm drag result: arm on the record plays, arm lifted pauses.
+    func setPlaying(_ on: Bool) {
+        if CommandLine.arguments.contains("-demo") { return }
+        Task { if on { await m.provider?.play() } else { await m.provider?.pause() } }
+    }
+
     func composition(_ side: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "")
@@ -191,7 +197,7 @@ struct PlayerView: View {
                         }
                         .frame(width: side, height: side).clipped()
                         .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
-                        Tonearm(playing: m.state.isPlaying, length: side * 0.95)
+                        Tonearm(playing: m.state.isPlaying, length: side * 0.95, onSet: setPlaying)
                             .offset(x: side * 1.6, y: side * 0.02)
         }
         .frame(width: side * 2.0, height: side, alignment: .topLeading)
