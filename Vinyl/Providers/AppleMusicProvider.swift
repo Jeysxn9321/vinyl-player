@@ -33,6 +33,11 @@ final class AppleMusicProvider: MusicProvider {
     func pause() async { player.pause(); publish() }
     func next() async { try? await player.skipToNextEntry(); publish() }
     func previous() async { try? await player.skipToPreviousEntry(); publish() }
+    func setShuffle(_ on: Bool) async { player.state.shuffleMode = on ? .songs : .off; publish() }
+    func setRepeat(_ mode: RepeatMode) async {
+        player.state.repeatMode = mode == .all ? .all : (mode == .one ? .one : MusicKit.MusicPlayer.RepeatMode.none)
+        publish()
+    }
     func seek(to t: TimeInterval) async { player.playbackTime = t; publish() }
 
     /// Library playlists and albums (needs an Apple Music library; empty without one).
@@ -116,6 +121,8 @@ final class AppleMusicProvider: MusicProvider {
     private func publish() {
         var st = MusicState(provider: .appleMusic)
         st.isPlaying = player.state.playbackStatus == .playing
+        st.shuffle = player.state.shuffleMode == .songs
+        switch player.state.repeatMode { case .all?: st.repeatMode = .all; case .one?: st.repeatMode = .one; default: st.repeatMode = .off }
         st.progress = player.playbackTime
         if let entry = player.queue.currentEntry {
             if case .song(let song)? = entry.item {

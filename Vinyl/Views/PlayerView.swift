@@ -177,7 +177,11 @@ struct PlayerView: View {
                     HStack { Text(fmt(m.state.progress)); Spacer(); Text("-" + fmt(max(0, t.duration - m.state.progress))) }
                         .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.6))
                 }
-                HStack(spacing: 34) {
+                HStack(spacing: 22) {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
+                        Task { await m.provider?.setShuffle(!m.state.shuffle) }
+                    } label: { modeIcon("shuffle", on: m.state.shuffle) }.accessibilityLabel("Shuffle")
                     Spacer()
                     btn("backward.fill", "Previous") { await m.provider?.previous() }
                     Button {
@@ -192,6 +196,11 @@ struct PlayerView: View {
                     }.accessibilityLabel(m.state.isPlaying ? "Pause" : "Play")
                     btn("forward.fill", "Next") { await m.provider?.next() }
                     Spacer()
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
+                        Task { await m.provider?.setRepeat(m.state.repeatMode.next) }
+                    } label: { modeIcon(m.state.repeatMode == .one ? "repeat.1" : "repeat", on: m.state.repeatMode != .off) }
+                        .accessibilityLabel("Repeat")
                 }
                 .opacity(showControls ? 1 : 0).allowsHitTesting(showControls).padding(.top, 8)
                 utilityRow.padding(.top, 2)
@@ -284,6 +293,12 @@ struct PlayerView: View {
             Spacer()
         }
         .opacity(showControls ? 1 : 0).allowsHitTesting(showControls)
+    }
+    func modeIcon(_ n: String, on: Bool) -> some View {
+        Image(systemName: n).font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(on ? tintLight : .white.opacity(0.55))
+            .shadow(color: on ? tintLight.opacity(0.7) : .clear, radius: 6)
+            .frame(minWidth: 44, minHeight: 44)
     }
     func utilIcon(_ n: String) -> some View {
         Image(systemName: n).font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)

@@ -110,6 +110,11 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     func pause() async { _ = await call("PUT", "/pause"); await settle() }
     func next() async { _ = await call("POST", "/next"); await settle(500) }
     func previous() async { _ = await call("POST", "/previous"); await settle(500) }
+    func setShuffle(_ on: Bool) async { _ = await call("PUT", "/shuffle?state=\(on)"); await settle() }
+    func setRepeat(_ mode: RepeatMode) async {
+        let v = mode == .all ? "context" : (mode == .one ? "track" : "off")
+        _ = await call("PUT", "/repeat?state=\(v)"); await settle()
+    }
     func seek(to t: TimeInterval) async { _ = await call("PUT", "/seek?position_ms=\(Int(t * 1000))"); await settle() }
 
     struct Playlist: Identifiable, Hashable {
@@ -233,6 +238,8 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         let artists = (item["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ") ?? ""
         var st = MusicState(provider: .spotify)
         st.isPlaying = j["is_playing"] as? Bool ?? false
+        st.shuffle = j["shuffle_state"] as? Bool ?? false
+        st.repeatMode = (j["repeat_state"] as? String).map { $0 == "context" ? .all : ($0 == "track" ? .one : .off) } ?? .off
         st.progress = (j["progress_ms"] as? Double ?? 0) / 1000
         let title = item["name"] as? String ?? ""
         // Local files have no id; fall back to title+artist so consecutive ones still count as a change.

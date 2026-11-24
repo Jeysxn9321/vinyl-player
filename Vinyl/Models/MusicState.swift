@@ -12,7 +12,13 @@ struct Track: Equatable {
     var duration: TimeInterval
 }
 
+enum RepeatMode: String { case off, all, one
+    var next: RepeatMode { self == .off ? .all : (self == .all ? .one : .off) }
+}
+
 struct MusicState: Equatable {
+    var shuffle = false
+    var repeatMode = RepeatMode.off
     var track: Track?
     var isPlaying = false
     var progress: TimeInterval = 0
@@ -29,6 +35,8 @@ protocol MusicProvider: AnyObject {
     func next() async
     func previous() async
     func seek(to: TimeInterval) async
+    func setShuffle(_ on: Bool) async
+    func setRepeat(_ mode: RepeatMode) async
 }
 
 enum MusicError: LocalizedError {
