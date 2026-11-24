@@ -6,6 +6,7 @@ import ActivityKit
     var body: some Widget {
         LunaraLiveActivity()
         LunaraRecordWidget()
+        LunaraCollectionWidget()
     }
 }
 
@@ -42,6 +43,37 @@ struct LunaraRecordWidget: Widget {
         .configurationDisplayName("Lunara")
         .description("The last record you played in Lunara.")
         .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct CollectionEntry: TimelineEntry { let date: Date; let items: [CollectionItem] }
+
+struct CollectionProvider: TimelineProvider {
+    func placeholder(in context: Context) -> CollectionEntry { CollectionEntry(date: Date(), items: []) }
+    func getSnapshot(in context: Context, completion: @escaping (CollectionEntry) -> Void) {
+        completion(CollectionEntry(date: Date(), items: CollectionStore.items()))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<CollectionEntry>) -> Void) {
+        completion(Timeline(entries: [CollectionEntry(date: Date(), items: CollectionStore.items())], policy: .never))
+    }
+}
+
+struct CollectionWidgetRoot: View {
+    var entry: CollectionEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        CollectionWidgetView(items: entry.items, family: family == .systemSmall ? .small : family == .systemMedium ? .medium : .large)
+            .containerBackground(for: .widget) { Color.black }
+    }
+}
+
+/// Records the user picked in Lunara > Settings > Widget collection.
+struct LunaraCollectionWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "LunaraCollection", provider: CollectionProvider()) { CollectionWidgetRoot(entry: $0) }
+            .configurationDisplayName("Lunara collection")
+            .description("A shelf of records you chose in Lunara.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 

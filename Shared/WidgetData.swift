@@ -12,20 +12,14 @@ struct WidgetSnapshot: Codable, Equatable {
     var tintB: Double
     var tint: Color { Color(red: tintR, green: tintG, blue: tintB) }
 
-    /// AltStore may rewrite the group ID; if it publishes the real one in `ALTAppGroups`, use that.
-    static var groupID: String {
-        (Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String])?.first ?? "group.com.example.vinyl"
-    }
-    private static let key = "widgetSnapshot"
-    private static var store: UserDefaults? { UserDefaults(suiteName: groupID) }
-
+    /// Stored as a file in the shared App Group container (see SharedStore, which tries the group IDs AltStore may have produced).
+    private static let file = "snapshot.json"
     static func load() -> WidgetSnapshot? {
-        guard let d = store?.data(forKey: key) else { return nil }
+        guard let d = SharedStore.read(file) else { return nil }
         return try? JSONDecoder().decode(WidgetSnapshot.self, from: d)
     }
     static func save(_ s: WidgetSnapshot?) {
-        guard let store else { return }
-        if let s, let d = try? JSONEncoder().encode(s) { store.set(d, forKey: key) } else { store.removeObject(forKey: key) }
+        SharedStore.write(s.flatMap { try? JSONEncoder().encode($0) }, file)
     }
 }
 

@@ -119,3 +119,7 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 
 ## Queue rows are tappable (added, NOT tested on device)
 - Tapping an "Up next" row jumps to it. Spotify: skips forward N times (no direct jump API without losing context). Apple Music: selects the queue entry (system-player fallback: skips forward N times).
+
+## Widgets: shared storage fix and collection widget (NOT tested on a device)
+- The "last played" widget stayed on its placeholder. Suspected cause: AltStore rewrites the App Group ID, so app and extension used different `UserDefaults` stores. Data now lives as files in the App Group container, found by `SharedStore` (tries `ALTAppGroups`, the declared ID and team-ID variants). This is a hypothesis; if no candidate ID grants a container, the widgets stay empty. Settings > Widget collection shows whether shared storage is available.
+- New "Lunara collection" widget (small / medium / large). Records are added from Settings (adds the current track with its disc label); swipe to remove. Not run on a device, no CI screenshot yet.
