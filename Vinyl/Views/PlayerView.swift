@@ -190,8 +190,10 @@ struct PlayerView: View {
     }
 
     func portrait(_ size: CGSize) -> some View {
-        let d = min(size.width * 0.86, size.height * 0.42)
-        let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.06
+        // Tall screens (iPad portrait) leave a big gap above the title: grow the record into it, but never into the ~330 pt controls block.
+        let y0 = size.height * 0.06
+        let d = max(120, min(size.width * 0.86, size.height * 0.56, size.height - y0 - 340))
+        let x0 = (size.width - d) / 2 - size.width * 0.03
         let armLen = d * 0.535
         let aw = armLen * 0.16
         return ZStack(alignment: .topLeading) {
