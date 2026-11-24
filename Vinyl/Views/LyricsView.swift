@@ -12,10 +12,10 @@ enum LyricsLoader {
     enum Result: Equatable { case lines([LyricLine], synced: Bool), instrumental, none }
     private static var cache: [String: Result] = [:]
 
-    static func load(_ t: Track) async -> Result {
+    static func load(_ t: Track) async -> Result? {
         let key = "\(t.artist)|\(t.title)|\(t.album)"
         if let c = cache[key] { return c }
-        guard let r = await fetch(t) else { return .none }   // network error: don't cache, allow retry
+        guard let r = await fetch(t) else { return nil }   // network error: don't cache, allow retry
         cache[key] = r
         return r
     }
