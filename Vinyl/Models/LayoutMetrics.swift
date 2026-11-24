@@ -17,11 +17,11 @@ struct LayoutMetrics: Equatable {
         } else if h <= 420 {
             // Outer screen held sideways (Atrium: max-height 420/560): shrink and drop the progress row.
             shape = .outerSideways
-            recordSide = min(w * 0.92 / 1.82, h * 0.86)
+            recordSide = min(w * 0.92 / 1.95, h * 0.86)
             showsProgress = false
         } else {
             shape = .wide
-            recordSide = min(w * 0.92 / 1.82, h * 0.86)
+            recordSide = min(w * 0.92 / 1.95, h * 0.86)
             showsProgress = true
         }
     }

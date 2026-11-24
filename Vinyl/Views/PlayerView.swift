@@ -159,16 +159,19 @@ struct PlayerView: View {
 
     /// Full-screen record: disc fills the width with the real cover as its label, tonearm at the right edge,
     /// title bottom-left, controls underneath.
-    func portrait(_ size: CGSize) -> some View {
-        let d = min(size.width * 0.86, size.height * 0.52)
-        let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.07
-        let rim = AngularGradient(stops: [
+    var rim: AngularGradient {
+        AngularGradient(stops: [
             .init(color: tintLight.opacity(0.12), location: 0.0), .init(color: tintLight.opacity(0.25), location: 0.2),
             .init(color: tintLight.opacity(0.7), location: 0.3), .init(color: tintLight, location: 0.4),
             .init(color: tintLight.opacity(0.9), location: 0.5), .init(color: tintLight.opacity(0.3), location: 0.58),
             .init(color: tintLight.opacity(0.7), location: 0.65), .init(color: tintLight, location: 0.72),
             .init(color: tintLight.opacity(0.35), location: 0.8), .init(color: tintLight.opacity(0.12), location: 0.92),
             .init(color: tintLight.opacity(0.12), location: 1.0)], center: .center)
+    }
+
+    func portrait(_ size: CGSize) -> some View {
+        let d = min(size.width * 0.86, size.height * 0.52)
+        let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.07
         let armLen = size.width * 0.46
         let aw = armLen * 0.16
         return ZStack(alignment: .topLeading) {
@@ -243,18 +246,30 @@ struct PlayerView: View {
     }
 
     func composition(_ side: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "")
-                            .frame(width: side, height: side)
-                            .offset(x: m.state.isPlaying ? side * 0.82 : side * 0.45)
-                            .animation(.spring(response: 0.9, dampingFraction: 0.85), value: m.state.isPlaying)
-                        Group {
-                            if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color(white: 0.15) }
-                        }
-                        .frame(width: side, height: side).clipped()
-                        .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
+        let discX = m.state.isPlaying ? side * 0.82 : side * 0.45
+        let armLen = side * 0.72, aw = armLen * 0.16
+        return ZStack(alignment: .topLeading) {
+            Circle().fill(tintLight.opacity(0.22))   // soft haze behind the record
+                .frame(width: side * 1.08, height: side * 1.08).blur(radius: 34)
+                .offset(x: discX - side * 0.04, y: -side * 0.04)
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
+                .frame(width: side, height: side)
+                .offset(x: discX)
+            Circle().strokeBorder(rim, lineWidth: 5)   // uneven glowing rim
+                .frame(width: side, height: side).blur(radius: 1)
+                .shadow(color: tintLight.opacity(0.9), radius: 12).shadow(color: tintLight.opacity(0.6), radius: 30)
+                .allowsHitTesting(false)
+                .offset(x: discX)
+            Group {
+                if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color(white: 0.15) }
+            }
+            .frame(width: side, height: side).clipped()
+            .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
+            Tonearm(playing: m.state.isPlaying, length: armLen, playAngle: 12, glow: tintLight, onSet: setPlaying)
+                .offset(x: side * 1.82 - aw * 1.1, y: side * 0.03 - aw * 1.1)
         }
-        .frame(width: side * 1.82, height: side, alignment: .topLeading)
+        .animation(.spring(response: 0.9, dampingFraction: 0.85), value: m.state.isPlaying)
+        .frame(width: side * 1.95, height: side, alignment: .topLeading)
         .accessibilityHidden(true)
     }
     func info(_ progress: Bool) -> some View {
