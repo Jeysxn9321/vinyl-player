@@ -122,11 +122,15 @@ struct PlayerView: View {
             let wide = lm.shape != .portrait
             let side = lm.recordSide
             if wide {
-                // Landscape: just the sleeve and the record, as large as fits. Tap to play or pause.
+                // Landscape: the sleeve and the record as large as fits; a tap brings the controls back for a few seconds.
                 composition(side)
                     .frame(width: g.size.width, height: g.size.height)
-                    .contentShape(Rectangle())
-                    .onTapGesture { setPlaying(!m.state.isPlaying) }
+                    .overlay(alignment: .bottom) {
+                        VStack(spacing: 12) { info(lm.showsProgress); controls }
+                            .padding(.horizontal, 24).padding(.top, 40).padding(.bottom, 8)
+                            .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                            .opacity(showControls ? 1 : 0).allowsHitTesting(showControls)
+                    }
             } else {
                 portrait(g.size)
             }
