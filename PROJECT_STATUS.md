@@ -113,3 +113,6 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 - Direct path (`/database/search` then `/releases/{id}`) mirrors the proxy worker; never exercised against Discogs. Images stay `.unverified`.
 - Connecting/disconnecting clears cached lookups and re-queries the playing album.
 - Also undocumented until now: iPad portrait record enlargement; landscape "Vinyl artwork" button.
+
+## Platter coast-down (added, NOT tested on device)
+- On pause the music stops at once and the tonearm lifts, but the disc keeps turning 3 more revolutions with a linear slow-down (about 21.6 s), then stops. Resuming mid-coast carries the angle over.

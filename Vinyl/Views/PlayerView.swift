@@ -165,7 +165,7 @@ struct PlayerView: View {
         .contentShape(Rectangle())
         .onTapGesture { reveal() }
         .onAppear { if !CommandLine.arguments.contains("-demo") { reveal() } }
-        .onReceive(NotificationCenter.default.publisher(for: .discogsChanged)) { _ in artwork.reloadProviders() }
+        .onReceive(NotificationCenter.default.publisher(for: .discogsChanged)) { _ in m.artwork.reloadProviders() }
         .onChange(of: autoHide) { _, on in if on { reveal() } else { hideTask?.cancel(); showControls = true } }
         .sheet(isPresented: $showSettings) { SettingsView(m: m) }
         .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }

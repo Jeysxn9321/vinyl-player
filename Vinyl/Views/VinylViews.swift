@@ -155,16 +155,20 @@ struct SpinningDisc: View {
     private let period = 3.6   // seconds per revolution (slowed from 1.8, which looked too fast)
     @State private var accumulated = 0.0   // seconds of spin before current run
     @State private var runStart: Date?
+    @State private var coastStart: Date?   // after a pause the platter keeps turning for 3 more revolutions, slowing to a stop
+    private var coastTime: Double { period * 6 }   // linear slow-down covering 3 turns: distance = T/2 = 3 periods
+    private func coastDistance(_ t: Double) -> Double { let c = min(max(t, 0), coastTime); return c - c * c / (2 * coastTime) }
 
     var body: some View {
-        TimelineView(.animation(paused: !playing)) { tl in
+        TimelineView(.animation(paused: !playing && coastStart == nil)) { tl in
             let run = runStart.map { tl.date.timeIntervalSince($0) } ?? 0
+            let coast = coastStart.map { coastDistance(tl.date.timeIntervalSince($0)) } ?? 0
             VinylDisc(color: color, label: label,
                       title: (inlineTitle || labelStyle == LabelStyle.text.rawValue) ? title : "",
                       labelScale: (LabelSize(rawValue: labelSize) ?? .medium).scaled(labelScale),
                       pattern: VinylPattern(rawValue: pattern) ?? .plain, dust: dust,
                       labelStyle: LabelStyle(rawValue: labelStyle) ?? .artwork)
-                .rotationEffect(.degrees(((accumulated + run) / period).truncatingRemainder(dividingBy: 1) * 360))
+                .rotationEffect(.degrees(((accumulated + run + coast) / period).truncatingRemainder(dividingBy: 1) * 360))
         }
         // Light reflections stay fixed while the record turns.
         .overlay {
@@ -175,8 +179,17 @@ struct SpinningDisc: View {
         }
         .shadow(color: glow ? color.opacity(0.9) : .clear, radius: glow ? 36 : 0)
         .onChange(of: playing) { _, p in
-            if p { runStart = Date() }
-            else if let s = runStart { accumulated += Date().timeIntervalSince(s); runStart = nil }
+            if p {
+                if let c = coastStart { accumulated += coastDistance(Date().timeIntervalSince(c)); coastStart = nil }
+                runStart = Date()
+            } else if let s = runStart {
+                accumulated += Date().timeIntervalSince(s); runStart = nil
+                let c = Date(); coastStart = c
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(coastTime))
+                    if coastStart == c { accumulated += coastDistance(coastTime); coastStart = nil }
+                }
+            }
         }
         .onAppear { if playing { runStart = Date() } }
     }
