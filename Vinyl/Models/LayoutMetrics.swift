@@ -21,7 +21,7 @@ struct LayoutMetrics: Equatable {
             showsProgress = false
         } else {
             shape = .wide
-            recordSide = min(w * 0.58 / 2.0, h * 0.7)
+            recordSide = min(w * 0.68 / 2.05, h * 0.78)
             showsProgress = true
         }
     }

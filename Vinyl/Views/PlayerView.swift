@@ -250,10 +250,10 @@ struct PlayerView: View {
                         }
                         .frame(width: side, height: side).clipped()
                         .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
-                        Tonearm(playing: m.state.isPlaying, length: side * 0.95, onSet: setPlaying)
-                            .offset(x: side * 1.6, y: side * 0.02)
+                        Tonearm(playing: m.state.isPlaying, length: side * 0.75, onSet: setPlaying)
+                            .offset(x: side * 1.78, y: 0)
         }
-        .frame(width: side * 2.0, height: side, alignment: .topLeading)
+        .frame(width: side * 2.05, height: side, alignment: .topLeading)
         .accessibilityHidden(true)
     }
     func info(_ progress: Bool) -> some View {
