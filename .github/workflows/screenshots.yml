@@ -24,6 +24,9 @@ jobs:
             xcrun simctl terminate "$UDID" com.example.vinyl
             xcrun simctl launch "$UDID" com.example.vinyl -demo
             sleep 5; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_player.png"
+            xcrun simctl terminate "$UDID" com.example.vinyl
+            xcrun simctl launch "$UDID" com.example.vinyl -demo -landscape
+            sleep 6; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_landscape.png"
             xcrun simctl shutdown "$UDID"
           done
           ls shots

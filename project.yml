@@ -10,6 +10,7 @@ targets:
       properties:
         CFBundleDisplayName: Lunara
         UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSAppleMusicUsageDescription: Vinyl shows and controls your Apple Music playback.
         CFBundleURLTypes:
           - CFBundleURLSchemes: [vinylplayer]

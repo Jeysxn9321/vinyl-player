@@ -5,7 +5,13 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
             if CommandLine.arguments.contains("-demo") {
-                PlayerView(m: model).onAppear { model.loadDemo() }
+                PlayerView(m: model).onAppear {
+                    model.loadDemo()
+                    if CommandLine.arguments.contains("-landscape"),
+                       let sc = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                        sc.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
+                    }
+                }
             } else if model.provider == nil { Onboarding(model: model) } else { PlayerView(m: model) }
         }
     }

@@ -42,49 +42,21 @@ struct PlayerView: View {
     var body: some View {
         GeometryReader { g in
             let wide = g.size.width > g.size.height
-            let side = min(g.size.width * 0.9 / 2.0, g.size.height * (wide ? 0.55 : 0.4))
+            let side = wide ? min(g.size.width * 0.58 / 2.0, g.size.height * 0.7) : min(g.size.width * 0.9 / 2.0, g.size.height * 0.4)
             ZStack {
-                VStack(spacing: 44) {
-                    Spacer(minLength: 0)
-                    // Composition from the reference video: square sleeve at left, record peeking
-                    // out from behind its right edge, tonearm pivoting at the top right.
-                    ZStack(alignment: .topLeading) {
-                        SpinningDisc(playing: m.state.isPlaying, color: Color(white: 0.06), label: m.art)
-                            .frame(width: side, height: side)
-                            .offset(x: m.state.isPlaying ? side * 0.82 : side * 0.45)
-                            .animation(.spring(response: 0.9, dampingFraction: 0.85), value: m.state.isPlaying)
-                        Group {
-                            if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color(white: 0.15) }
-                        }
-                        .frame(width: side, height: side).clipped()
-                        .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
-                        Tonearm(playing: m.state.isPlaying, length: side * 0.95)
-                            .offset(x: side * 1.6, y: side * 0.02)
+                if wide {
+                    HStack(spacing: 24) {
+                        composition(side)
+                        VStack(spacing: 20) { info; controls }.frame(maxWidth: .infinity)
+                    }.padding(.horizontal, 24)
+                } else {
+                    VStack(spacing: 44) {
+                        Spacer(minLength: 0)
+                        composition(side)
+                        info
+                        controls
+                        Spacer(minLength: 0)
                     }
-                    .frame(width: side * 2.0, height: side, alignment: .topLeading)
-                    .accessibilityHidden(true)
-
-                    VStack(spacing: 4) {
-                        Text(m.state.track?.title ?? "Nothing playing").font(.title3.bold())
-                        Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65))
-                    }
-                    .foregroundStyle(.white)
-
-                    if let t = m.state.track, t.duration > 0 {
-                        ProgressView(value: min(m.state.progress, t.duration), total: t.duration)
-                            .tint(.white).padding(.horizontal, 40)
-                        HStack { Text(fmt(m.state.progress)); Spacer(); Text(fmt(t.duration)) }
-                            .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 40)
-                    }
-                    HStack(spacing: 44) {
-                        btn("backward.fill", "Previous") { await m.provider?.previous() }
-                        btn(m.state.isPlaying ? "pause.circle.fill" : "play.circle.fill",
-                            m.state.isPlaying ? "Pause" : "Play", big: true) {
-                            if m.state.isPlaying { await m.provider?.pause() } else { await m.provider?.play() }
-                        }
-                        btn("forward.fill", "Next") { await m.provider?.next() }
-                    }
-                    Spacer(minLength: 0)
                 }
             }
             .frame(width: g.size.width, height: g.size.height)
@@ -96,6 +68,53 @@ struct PlayerView: View {
                     Image(uiImage: a).resizable().scaledToFill().blur(radius: 80).opacity(0.35)
                 }
             }.ignoresSafeArea()
+        }
+    }
+
+
+    func composition(_ side: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            SpinningDisc(playing: m.state.isPlaying, color: Color(white: 0.06), label: m.art)
+                            .frame(width: side, height: side)
+                            .offset(x: m.state.isPlaying ? side * 0.82 : side * 0.45)
+                            .animation(.spring(response: 0.9, dampingFraction: 0.85), value: m.state.isPlaying)
+                        Group {
+                            if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color(white: 0.15) }
+                        }
+                        .frame(width: side, height: side).clipped()
+                        .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
+                        Tonearm(playing: m.state.isPlaying, length: side * 0.95)
+                            .offset(x: side * 1.6, y: side * 0.02)
+        }
+        .frame(width: side * 2.0, height: side, alignment: .topLeading)
+        .accessibilityHidden(true)
+    }
+    var info: some View {
+        VStack(spacing: 14) {
+        VStack(spacing: 4) {
+                        Text(m.state.track?.title ?? "Nothing playing").font(.title3.bold())
+                        Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65))
+                    }
+                    .foregroundStyle(.white)
+
+                    if let t = m.state.track, t.duration > 0 {
+                        ProgressView(value: min(m.state.progress, t.duration), total: t.duration)
+                            .tint(.white).padding(.horizontal, 40)
+                        HStack { Text(fmt(m.state.progress)); Spacer(); Text(fmt(t.duration)) }
+                            .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 40)
+                    }
+        }
+    }
+    var controls: some View {
+        VStack(spacing: 18) {
+                    HStack(spacing: 44) {
+                        btn("backward.fill", "Previous") { await m.provider?.previous() }
+                        btn(m.state.isPlaying ? "pause.circle.fill" : "play.circle.fill",
+                            m.state.isPlaying ? "Pause" : "Play", big: true) {
+                            if m.state.isPlaying { await m.provider?.pause() } else { await m.provider?.play() }
+                        }
+                        btn("forward.fill", "Next") { await m.provider?.next() }
+                    }
         }
     }
 
