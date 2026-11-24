@@ -1,5 +1,11 @@
 name: Build unsigned IPA
-on: [workflow_dispatch, push]
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore: ["**.md", "rec/**"]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: xcode-27

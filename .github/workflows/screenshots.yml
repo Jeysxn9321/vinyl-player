@@ -1,5 +1,5 @@
 name: Simulator screenshots
-on: [workflow_dispatch, push]
+on: [workflow_dispatch]
 jobs:
   shots:
     runs-on: xcode-27
