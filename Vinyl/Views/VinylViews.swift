@@ -50,6 +50,33 @@ struct VinylDisc: View {
     }
 }
 
+private struct ArmBase: View {
+    var body: some View {
+        ZStack {
+            Circle().fill(AngularGradient(colors: [Color(white: 0.92), Color(white: 0.35), Color(white: 0.85), Color(white: 0.3), Color(white: 0.92)], center: .center))
+            Circle().stroke(Color.white.opacity(0.6), lineWidth: 1.5)
+            Circle().stroke(Color.black.opacity(0.35), lineWidth: 2).padding(10)
+            Circle().fill(RadialGradient(colors: [Color(white: 0.85), Color(white: 0.3)], center: .topLeading, startRadius: 0, endRadius: 40)).padding(18)
+        }
+    }
+}
+
+private struct Headshell: View {
+    var w: CGFloat
+    var glow: Color
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(LinearGradient(colors: [Color(white: 0.35), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: 3).stroke(Color.white.opacity(0.5), lineWidth: 1)
+            Circle().fill(glow.opacity(0.9)).frame(width: w * 0.2, height: w * 0.2).offset(y: -w * 0.15)
+            Capsule().fill(Color.white).frame(width: w * 0.1, height: w * 0.2)
+                .shadow(color: glow, radius: 5).shadow(color: glow, radius: 12)
+                .offset(y: w * 0.55)
+        }
+    }
+}
+
 struct Tonearm: View {
     var playing: Bool
     var length: CGFloat = 200
@@ -62,45 +89,34 @@ struct Tonearm: View {
     var body: some View {
         let w = length * 0.16
         let W = w * 2.2, H = length + w * 2, cx = W / 2
+        let by = w * 1.1   // base centre y
         let silver = LinearGradient(colors: [Color(white: 0.95), Color(white: 0.55), Color(white: 0.9)], startPoint: .leading, endPoint: .trailing)
-        ZStack {
+        let arm = Path { p in
+            p.move(to: CGPoint(x: cx, y: by))
+            p.addLine(to: CGPoint(x: cx, y: w + length * 0.62))
+            p.addCurve(to: CGPoint(x: cx - w * 0.62, y: w + length * 0.98),
+                       control1: CGPoint(x: cx, y: w + length * 0.84),
+                       control2: CGPoint(x: cx - w * 0.62, y: w + length * 0.8))
+        }
+        ZStack(alignment: .topLeading) {
+            Color.clear.frame(width: W, height: H)
             // Chrome tube: leaves the base, runs down, bends in toward the record at the end.
-            let arm = Path { p in
-                p.move(to: CGPoint(x: cx, y: w * 1.1))
-                p.addLine(to: CGPoint(x: cx, y: w + length * 0.62))
-                p.addCurve(to: CGPoint(x: cx - w * 0.62, y: w + length * 0.98),
-                           control1: CGPoint(x: cx, y: w + length * 0.84),
-                           control2: CGPoint(x: cx - w * 0.62, y: w + length * 0.8))
-            }
             arm.stroke(Color(white: 0.12), style: StrokeStyle(lineWidth: max(5, w * 0.24), lineCap: .round, lineJoin: .round))
                 .shadow(color: .black.opacity(0.6), radius: 5, x: 3, y: 4)
             arm.stroke(silver, style: StrokeStyle(lineWidth: max(4, w * 0.19), lineCap: .round, lineJoin: .round))
             arm.stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: max(1, w * 0.04), lineCap: .round, lineJoin: .round))
-                .offset(x: -w * 0.03)
-            // Angled headshell with a logo dot and a glowing stylus tip.
-            ZStack {
-                RoundedRectangle(cornerRadius: w * 0.16)
-                    .fill(LinearGradient(colors: [Color(white: 0.3), Color(white: 0.06)], startPoint: .top, endPoint: .bottom))
-                    .overlay(RoundedRectangle(cornerRadius: w * 0.16).stroke(Color.white.opacity(0.5), lineWidth: 1))
-                    .frame(width: w * 0.7, height: w * 1.4)
-                Circle().fill(glow.opacity(0.9)).frame(width: w * 0.24).offset(y: -w * 0.1)
-                Capsule().fill(Color.white).frame(width: w * 0.1, height: w * 0.2)
-                    .shadow(color: glow, radius: 5).shadow(color: glow, radius: 12)
-                    .offset(y: w * 0.72)
-            }
-            .rotationEffect(.degrees(-24))
-            .position(x: cx - w * 0.78, y: w + length + w * 0.45)
-            .shadow(color: .black.opacity(0.6), radius: 5, y: 3)
+            // Small angled headshell with a glowing stylus tip.
+            Headshell(w: w, glow: glow)
+                .frame(width: w * 0.5, height: w * 1.0)
+                .rotationEffect(.degrees(-24))
+                .offset(x: cx - w * 0.62 - w * 0.25, y: w + length * 0.98 - w * 0.1)
             // Big round brushed-metal base.
-            Circle()
-                .fill(AngularGradient(colors: [Color(white: 0.9), Color(white: 0.35), Color(white: 0.85), Color(white: 0.3), Color(white: 0.9)], center: .center))
-                .overlay(Circle().stroke(Color.white.opacity(0.6), lineWidth: 1.5))
-                .overlay(Circle().inset(by: w * 0.28).stroke(Color.black.opacity(0.35), lineWidth: 2))
-                .overlay(Circle().inset(by: w * 0.5).fill(RadialGradient(colors: [Color(white: 0.8), Color(white: 0.3)], center: .topLeading, startRadius: 0, endRadius: w)))
+            ArmBase()
                 .frame(width: W, height: W)
                 .shadow(color: .black.opacity(0.7), radius: 10, y: 5)
-                .position(x: cx, y: w * 1.1)
-            Circle().fill(Color(white: 0.15)).frame(width: w * 0.35).position(x: cx, y: w * 1.1)
+                .offset(x: 0, y: by - W / 2)
+            Circle().fill(Color(white: 0.12)).frame(width: w * 0.35, height: w * 0.35)
+                .offset(x: cx - w * 0.175, y: by - w * 0.175)
         }
         .frame(width: W, height: H, alignment: .top)
         .contentShape(Rectangle())
