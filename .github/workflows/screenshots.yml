@@ -44,6 +44,7 @@ jobs:
             shot settings -settings
             shot browser -browser
             shot queue -queue
+            shot artwork -artwork
             if echo "$NAME" | grep -q "iPhone 18"; then
               shot pat_splatter -vinylPattern splatter -vinylColor red -fxSheen YES
               shot pat_marble -vinylPattern marble -vinylColor blue -fxGlow YES
