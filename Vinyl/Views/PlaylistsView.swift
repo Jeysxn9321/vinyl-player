@@ -33,7 +33,7 @@ struct PlaylistsView: View {
                 } else if shown.isEmpty {
                     Text(items.isEmpty ? "No playlists found." : "No match.").foregroundStyle(.secondary).padding(.top, 60)
                 } else {
-                    LazyVStack(spacing: -70) {
+                    LazyVStack(spacing: -170) {
                         ForEach(shown) { p in
                             Button { Task { await play(p) } } label: { cover(p) }
                                 .buttonStyle(.plain)
@@ -46,7 +46,7 @@ struct PlaylistsView: View {
                         }
                     }
                     .padding(.vertical, 40).padding(.horizontal, 24)
-                    .frame(maxWidth: 380).frame(maxWidth: .infinity)
+                    .frame(maxWidth: 290).frame(maxWidth: .infinity)
                 }
                 if let message { Text(message).font(.footnote).foregroundStyle(.orange).padding() }
             }
@@ -66,13 +66,13 @@ struct PlaylistsView: View {
                                       startPoint: .topLeading, endPoint: .bottomTrailing)
         return AsyncImage(url: p.imageURL) { $0.resizable().scaledToFill() } placeholder: { fallback }
             .aspectRatio(1, contentMode: .fit)
-            .overlay(alignment: .bottomLeading) {
+            .overlay(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(p.name).font(.headline).lineLimit(2)
                     if !p.owner.isEmpty { Text(p.owner).font(.caption).opacity(0.75).lineLimit(1) }
                 }
                 .foregroundStyle(.white).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                .background(LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom))
+                .background(LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .bottom, endPoint: .top))
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.5), radius: 12, y: 6)

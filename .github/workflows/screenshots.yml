@@ -15,6 +15,13 @@ jobs:
       - name: Run and capture
         run: |
           mkdir -p shots
+          # iPhone Duo has two displays; simctl refuses to guess, so capture both (1 = main, 3 = second).
+          snap() {
+            if echo "$NAME" | grep -q Duo; then
+              xcrun simctl io "$UDID" screenshot --display=1 "${1%.png}_d1.png" || true
+              xcrun simctl io "$UDID" screenshot --display=3 "${1%.png}_d3.png" || true
+            else xcrun simctl io "$UDID" screenshot "$1"; fi
+          }
           xcrun simctl list devices available | grep -E "iPhone 18 Pro Max|iPad Pro|Duo"
           for NAME in "iPhone 18 Pro Max" "iPad Pro 13-inch (M5)" "iPhone Duo"; do
             UDID=$(xcrun simctl list devices available | grep "$NAME (" | head -1 | grep -oE '[0-9A-F-]{36}')
@@ -22,16 +29,16 @@ jobs:
             xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
             xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/Vinyl.app
             xcrun simctl launch "$UDID" com.example.vinyl
-            sleep 4; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_onboarding.png"
+            sleep 4; snap "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_onboarding.png"
             xcrun simctl terminate "$UDID" com.example.vinyl
             xcrun simctl launch "$UDID" com.example.vinyl -demo
-            sleep 5; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_player.png"
+            sleep 5; snap "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_player.png"
             xcrun simctl terminate "$UDID" com.example.vinyl
             xcrun simctl launch "$UDID" com.example.vinyl -demo -landscape
-            sleep 6; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_landscape.png"
+            sleep 6; snap "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_landscape.png"
             xcrun simctl terminate "$UDID" com.example.vinyl
             TAG=$(echo $NAME | tr -c 'A-Za-z0-9' _)
-            shot() { xcrun simctl launch "$UDID" com.example.vinyl -demo "${@:2}"; sleep 5; xcrun simctl io "$UDID" screenshot "shots/${TAG}_$1.png"; xcrun simctl terminate "$UDID" com.example.vinyl; }
+            shot() { xcrun simctl launch "$UDID" com.example.vinyl -demo "${@:2}"; sleep 5; snap "shots/${TAG}_$1.png"; xcrun simctl terminate "$UDID" com.example.vinyl; }
             shot hidden -hidden
             shot pill -pill -hidden
             shot settings -settings
