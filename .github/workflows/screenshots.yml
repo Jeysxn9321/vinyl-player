@@ -45,6 +45,9 @@ jobs:
             shot browser -browser
             shot queue -queue
             shot artwork -artwork
+            shot lyrics -lyrics
+            shot artistpage -artistpage
+            shot albumpage -albumpage
             if echo "$NAME" | grep -q "iPhone 18"; then
               xcrun simctl launch "$UDID" com.example.vinyl -demo -artwork -artquery "Daft Punk|Random Access Memories"; sleep 40; snap "shots/${TAG}_artwork_live.png"; xcrun simctl terminate "$UDID" com.example.vinyl
             fi

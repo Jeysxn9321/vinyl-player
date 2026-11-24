@@ -220,6 +220,59 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         }
     }
 
+    // MARK: artist / album browsing (tap the artist or title on the player)
+    private static func album(_ o: [String: Any]?) -> CatalogAlbum? {
+        guard let o, let id = o["id"] as? String, let name = o["name"] as? String else { return nil }
+        let imgs = o["images"] as? [[String: Any]] ?? []
+        let url = ((imgs.count > 1 ? imgs[1] : imgs.first)?["url"] as? String).flatMap(URL.init)
+        let by = (o["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ") ?? ""
+        return CatalogAlbum(id: id, title: name, artist: by, year: String((o["release_date"] as? String ?? "").prefix(4)), imageURL: url)
+    }
+    private func getJSON(_ path: String) async throws -> [String: Any] {
+        guard let (d, status) = await call("GET", path, root: "") else { throw BrowseError.failed }
+        if status == 401 { throw BrowseError.needsReconnect }
+        if status == 403 { throw BrowseError.forbidden }
+        guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { throw BrowseError.failed }
+        return j
+    }
+    private static func enc(_ s: String) -> String { s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? s }
+
+    /// Albums and singles of an artist, newest first. Uses the artist ID when known, else the best name match.
+    func artistAlbums(name: String, id: String?) async throws -> [CatalogAlbum] {
+        var artistID = id
+        if artistID == nil {
+            let j = try await getJSON("/search?q=\(Self.enc(name))&type=artist&limit=1")
+            artistID = ((j["artists"] as? [String: Any])?["items"] as? [[String: Any]])?.first?["id"] as? String
+        }
+        guard let artistID else { return [] }
+        let j = try await getJSON("/artists/\(artistID)/albums?include_groups=album,single&limit=50")
+        var seen = Set<String>()
+        return (j["items"] as? [[String: Any]] ?? []).compactMap { Self.album($0) }
+            .filter { seen.insert($0.title.lowercased()).inserted }
+            .sorted { $0.year > $1.year }
+    }
+
+    func findAlbum(title: String, artist: String, id: String?) async throws -> CatalogAlbum? {
+        if let id { return Self.album(try await getJSON("/albums/\(id)")) }
+        let j = try await getJSON("/search?q=\(Self.enc("album:\(title) artist:\(artist)"))&type=album&limit=1")
+        return Self.album(((j["albums"] as? [String: Any])?["items"] as? [[String: Any]])?.first)
+    }
+
+    func albumTracks(_ a: CatalogAlbum) async throws -> [SongItem] {
+        let j = try await getJSON("/albums/\(a.id)/tracks?limit=50")
+        return (j["items"] as? [[String: Any]] ?? []).compactMap { o in
+            guard let uri = o["uri"] as? String, let t = o["name"] as? String else { return nil }
+            let by = (o["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ") ?? ""
+            return SongItem(id: uri, title: t, artist: by, imageURL: a.imageURL)
+        }
+    }
+
+    /// Plays the album, starting at `start` when given.
+    func play(album a: CatalogAlbum, start: SongItem?) async -> String? {
+        if let start { return await play(uri: start.id, context: "spotify:album:\(a.id)") }
+        return await play(contextURI: "spotify:album:\(a.id)")
+    }
+
     private func startPolling() {
         active = true
         timer?.invalidate()
@@ -249,7 +302,9 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         let id = (item["id"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "\(title)|\(artists)"
         st.track = Track(id: id, title: title, artist: artists,
                          album: album?["name"] as? String ?? "", artworkURL: img,
-                         duration: (item["duration_ms"] as? Double ?? 0) / 1000)
+                         duration: (item["duration_ms"] as? Double ?? 0) / 1000,
+                         artistID: (item["artists"] as? [[String: Any]])?.first?["id"] as? String,
+                         albumID: album?["id"] as? String)
         onState?(st)
     }
 

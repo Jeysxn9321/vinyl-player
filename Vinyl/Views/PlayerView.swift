@@ -127,6 +127,13 @@ struct PlayerView: View {
     @State private var showAM = CommandLine.arguments.contains("-ambrowser")
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @State private var showArtwork = CommandLine.arguments.contains("-artwork")
+    @State private var showLyrics = CommandLine.arguments.contains("-lyrics")
+    @State private var catalog: CatalogTarget? = {
+        let a = CommandLine.arguments
+        if a.contains("-artistpage") { return CatalogTarget(kind: .artist, artist: "Demo Artist") }
+        if a.contains("-albumpage") { return CatalogTarget(kind: .album, artist: "Demo Artist", album: "Demo") }
+        return nil
+    }()
     @AppStorage(Pref.labelSize) private var labelSizePref = LabelSize.medium.rawValue
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
@@ -163,6 +170,8 @@ struct PlayerView: View {
         .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }
         .sheet(isPresented: $showQueue) { QueueView(m: m) }
         .sheet(isPresented: $showAM) { AppleMusicLibraryView(m: m) }
+        .sheet(isPresented: $showLyrics) { LyricsView(m: m) }
+        .sheet(item: $catalog) { CatalogView(m: m, target: $0) }
         .sheet(isPresented: $showArtwork) { ArtworkSelectorView(art: m.artwork, streamingCover: m.art) }
         .background {
             ZStack {
@@ -215,8 +224,10 @@ struct PlayerView: View {
                 .offset(x: x0 + d * 0.985 - aw * 1.1, y: y0 + d * 0.03 - aw * 1.1)
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
-                Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
-                Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(tintLight).lineLimit(1)
+                Button { openAlbum() } label: { Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2).multilineTextAlignment(.leading) }
+                    .buttonStyle(.plain).foregroundStyle(.white).accessibilityHint("Opens the album")
+                Button { openArtist() } label: { Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(tintLight).lineLimit(1) }
+                    .buttonStyle(.plain).accessibilityHint("Opens the artist's discography")
                 if let t = m.state.track, t.duration > 0 {
                     GlowProgress(value: min(m.state.progress, t.duration), total: t.duration, tint: tintLight, onSeek: seek).padding(.top, 6)
                     HStack { Text(fmt(m.state.progress)); Spacer(); Text("-" + fmt(max(0, t.duration - m.state.progress))) }
@@ -337,8 +348,10 @@ struct PlayerView: View {
     func info(_ progress: Bool) -> some View {
         VStack(spacing: 14) {
         VStack(spacing: 4) {
-                        Text(m.state.track?.title ?? "Nothing playing").font(.title3.bold())
-                        Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65))
+                        Button { openAlbum() } label: { Text(m.state.track?.title ?? "Nothing playing").font(.title3.bold()) }
+                            .buttonStyle(.plain).accessibilityHint("Opens the album")
+                        Button { openArtist() } label: { Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65)) }
+                            .buttonStyle(.plain).accessibilityHint("Opens the artist's discography")
                     }
                     .foregroundStyle(.white)
 
@@ -377,6 +390,17 @@ struct PlayerView: View {
         }
     }
 
+    func openArtist() {
+        guard let t = m.state.track, !t.artist.isEmpty else { return }
+        reveal()
+        catalog = CatalogTarget(kind: .artist, artist: t.artist, artistID: t.artistID)
+    }
+    func openAlbum() {
+        guard let t = m.state.track, !t.album.isEmpty else { return }
+        reveal()
+        catalog = CatalogTarget(kind: .album, artist: t.artist, album: t.album, artistID: t.artistID, albumID: t.albumID)
+    }
+
     /// Library / queue / playlists / settings icons.
     var utilityRow: some View {
         HStack(spacing: 28) {
@@ -389,6 +413,7 @@ struct PlayerView: View {
             }
             Button { showSettings = true } label: { utilIcon("gearshape") }.accessibilityLabel("Settings")
             Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
+            Button { showLyrics = true } label: { utilIcon("quote.bubble") }.accessibilityLabel("Lyrics")
             Button { showArtwork = true } label: { utilIcon("opticaldisc") }.accessibilityLabel("Vinyl artwork")
             Spacer()
         }
@@ -435,6 +460,9 @@ struct PlayerView: View {
             Button { showQueue = true } label: {
                 Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
             }.accessibilityLabel("Queue")
+            Button { showLyrics = true } label: {
+                Image(systemName: "quote.bubble").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+            }.accessibilityLabel("Lyrics")
         }
         .opacity(showControls ? 1 : 0)
         .allowsHitTesting(showControls)
@@ -476,6 +504,9 @@ struct PlayerView: View {
                         Button { showQueue = true } label: {
                             Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                         }.accessibilityLabel("Queue")
+                        Button { showLyrics = true } label: {
+                            Image(systemName: "quote.bubble").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                        }.accessibilityLabel("Lyrics")
                     }
         }
         .opacity(showControls ? 1 : 0)

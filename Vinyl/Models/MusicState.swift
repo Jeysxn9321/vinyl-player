@@ -10,6 +10,9 @@ struct Track: Equatable {
     var album: String
     var artworkURL: URL?
     var duration: TimeInterval
+    /// Spotify only: used to open the exact artist/album. Other providers search by name.
+    var artistID: String? = nil
+    var albumID: String? = nil
 }
 
 enum RepeatMode: String { case off, all, one

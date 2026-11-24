@@ -177,6 +177,62 @@ final class AppleMusicProvider: MusicProvider {
         }
     }
 
+    // MARK: artist / album browsing (tap the artist or title on the player)
+    // Uses the public iTunes Search API (no sign-in), like the search fallback; playback goes through the system player.
+    private struct ITResult: Decodable {
+        var wrapperType: String?; var artistId: Int?; var collectionId: Int?; var collectionName: String?
+        var artistName: String?; var artworkUrl100: String?; var releaseDate: String?
+        var trackId: Int?; var trackName: String?; var trackTimeMillis: Int?; var trackNumber: Int?
+    }
+    private func itunesGet(_ path: String, _ q: [String: String]) async throws -> [ITResult] {
+        var c = URLComponents(string: "https://itunes.apple.com/\(path)")!
+        c.queryItems = q.map { .init(name: $0.key, value: $0.value) }
+        let (data, _) = try await URLSession.shared.data(from: c.url!)
+        struct R: Decodable { var results: [ITResult] }
+        return try JSONDecoder().decode(R.self, from: data).results
+    }
+    private static func album(_ r: ITResult) -> CatalogAlbum? {
+        guard let id = r.collectionId, let t = r.collectionName else { return nil }
+        let art = r.artworkUrl100.flatMap { URL(string: $0.replacingOccurrences(of: "100x100", with: "400x400")) }
+        return CatalogAlbum(id: String(id), title: t, artist: r.artistName ?? "", year: String((r.releaseDate ?? "").prefix(4)), imageURL: art)
+    }
+    func artistAlbums(name: String, id: String?) async throws -> [CatalogAlbum] {
+        let first = name.components(separatedBy: CharacterSet(charactersIn: ",&")).first?.trimmingCharacters(in: .whitespaces) ?? name
+        let found = try await itunesGet("search", ["term": first, "media": "music", "entity": "musicArtist", "limit": "1"])
+        guard let aid = found.first?.artistId else { return [] }
+        let res = try await itunesGet("lookup", ["id": String(aid), "entity": "album", "limit": "200"])
+        var seen = Set<String>()
+        return res.filter { $0.wrapperType == "collection" }.compactMap(Self.album)
+            .filter { seen.insert($0.title.lowercased()).inserted }
+            .sorted { $0.year > $1.year }
+    }
+    func findAlbum(title: String, artist: String, id: String?) async throws -> CatalogAlbum? {
+        let res = try await itunesGet("search", ["term": "\(title) \(artist)", "media": "music", "entity": "album", "limit": "10"])
+        let hit = res.first { ($0.collectionName ?? "").lowercased() == title.lowercased() } ?? res.first
+        return hit.flatMap(Self.album)
+    }
+    func albumTracks(_ a: CatalogAlbum) async throws -> [SongItem] {
+        let res = try await itunesGet("lookup", ["id": a.id, "entity": "song", "limit": "200"])
+        return res.filter { $0.wrapperType == "track" }.sorted { ($0.trackNumber ?? 0) < ($1.trackNumber ?? 0) }.compactMap { r in
+            guard let id = r.trackId, let t = r.trackName else { return nil }
+            let key = String(id)
+            itunes[key] = (t, r.artistName ?? "", a.title, a.imageURL, Double(r.trackTimeMillis ?? 0) / 1000)
+            return SongItem(id: key, title: t, artist: r.artistName ?? "", imageURL: a.imageURL)
+        }
+    }
+    /// Plays the album's songs in order, starting at `start` when given.
+    func play(album songs: [SongItem], start: SongItem?) async -> String? {
+        guard !songs.isEmpty else { return "No songs to play." }
+        player.stop(); useMP = true
+        if MPMediaLibrary.authorizationStatus() == .notDetermined { _ = await withCheckedContinuation { c in MPMediaLibrary.requestAuthorization { c.resume(returning: $0) } } }
+        let d = MPMusicPlayerStoreQueueDescriptor(storeIDs: songs.map(\.id))
+        if let start { d.startItemID = start.id }
+        mp.setQueue(with: d)
+        mp.play()
+        publish()
+        return nil
+    }
+
     private func startPolling() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in self?.publish() }
