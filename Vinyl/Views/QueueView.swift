@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Read-only "Up next" list from Spotify's queue. Spotify has no call to jump to a queue item without
-/// dropping the playlist context, so rows are not tappable.
+/// "Up next" list. Tapping a row jumps there: Spotify by skipping forward that many tracks (keeps the context),
+/// Apple Music by selecting the queue entry.
 struct QueueView: View {
     @ObservedObject var m: PlayerModel
     @Environment(\.dismiss) private var dismiss
@@ -17,7 +17,7 @@ struct QueueView: View {
                     Section("Now playing") { row(now) }
                 }
                 if let up = queue?.upNext, !up.isEmpty {
-                    Section("Up next") { ForEach(up) { row($0) } }
+                    Section("Up next") { ForEach(up) { i in Button { Task { await jump(i) } } label: { row(i) }.buttonStyle(.plain) } }
                 } else if queue != nil {
                     Text("The queue is empty.").foregroundStyle(.secondary)
                 }
@@ -37,6 +37,13 @@ struct QueueView: View {
                 if !i.subtitle.isEmpty { Text(i.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
             }
         }
+    }
+
+    func jump(_ i: SpotifyProvider.QueueItem) async {
+        if demo { dismiss(); return }
+        if let am = m.appleMusic { await am.jump(toRow: i.id, from: queue?.now?.id ?? 0) }
+        else { await m.spotify?.skip(forward: i.id) }
+        dismiss()
     }
 
     func load() async {

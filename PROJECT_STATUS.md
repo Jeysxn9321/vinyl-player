@@ -116,3 +116,6 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 
 ## Platter coast-down (added, NOT tested on device)
 - On pause the music stops at once and the tonearm lifts, but the disc keeps turning 3 more revolutions with a linear slow-down (about 21.6 s), then stops. Resuming mid-coast carries the angle over.
+
+## Queue rows are tappable (added, NOT tested on device)
+- Tapping an "Up next" row jumps to it. Spotify: skips forward N times (no direct jump API without losing context). Apple Music: selects the queue entry (system-player fallback: skips forward N times).

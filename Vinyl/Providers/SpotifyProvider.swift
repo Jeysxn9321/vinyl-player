@@ -111,6 +111,11 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     func pause() async { _ = await call("PUT", "/pause"); await settle() }
     func next() async { _ = await call("POST", "/next"); await settle(500) }
     func previous() async { _ = await call("POST", "/previous"); await settle(500) }
+    /// Jump to an "up next" row: skipping forward `n` times keeps the playlist/album context (Spotify has no direct jump).
+    func skip(forward n: Int) async {
+        for _ in 0..<max(1, min(n, 50)) { _ = await call("POST", "/next"); try? await Task.sleep(nanoseconds: 150_000_000) }
+        await settle(500)
+    }
     func setShuffle(_ on: Bool) async { _ = await call("PUT", "/shuffle?state=\(on)"); await settle() }
     func setRepeat(_ mode: RepeatMode) async {
         let v = mode == .all ? "context" : (mode == .one ? "track" : "off")

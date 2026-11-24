@@ -34,6 +34,18 @@ final class AppleMusicProvider: MusicProvider {
         let up = entries.enumerated().filter { $0.offset > idx }.prefix(50).map { item($0.element, $0.offset) }
         return .init(now: cur.map { item($0, max(idx, 0)) }, upNext: Array(up))
     }
+    /// Jump to a row of the up-next list (row id = position in the queue entries).
+    func jump(toRow n: Int, from now: Int) async {
+        if useMP {
+            for _ in 0..<max(1, min(n - now, 50)) { mp.skipToNextItem() }
+        } else {
+            let entries = Array(player.queue.entries)
+            guard entries.indices.contains(n) else { return }
+            player.queue.currentEntry = entries[n]
+            try? await player.play()
+        }
+        publish()
+    }
     private var playlists: [String: Playlist] = [:]
     private var albums: [String: Album] = [:]
     private var current: [MusicKit.Track] = []   // songs of the album/playlist whose list is open
