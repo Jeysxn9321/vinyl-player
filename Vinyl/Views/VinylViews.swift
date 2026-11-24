@@ -85,7 +85,7 @@ struct Tonearm: View {
     /// Drag the arm onto the record to start, off it to stop. Called with the wanted playing state.
     var onSet: ((Bool) -> Void)? = nil
     @State private var drag: Double?   // live angle while the finger is down
-    private let restAngle = 4.0
+    private let restAngle = -10.0
     var body: some View {
         let w = length * 0.16
         let W = w * 2.2, H = length + w * 2, cx = W / 2

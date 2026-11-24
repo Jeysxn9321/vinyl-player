@@ -170,8 +170,8 @@ struct PlayerView: View {
     }
 
     func portrait(_ size: CGSize) -> some View {
-        let d = min(size.width * 0.86, size.height * 0.52)
-        let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.07
+        let d = min(size.width * 0.86, size.height * 0.42)
+        let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.06
         let armLen = size.width * 0.46
         let aw = armLen * 0.16
         return ZStack(alignment: .topLeading) {
