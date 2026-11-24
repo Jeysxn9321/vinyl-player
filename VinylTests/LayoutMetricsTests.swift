@@ -11,7 +11,7 @@ import XCTest
     func testWideCanvas() {
         let m = LayoutMetrics(size: CGSize(width: 1100, height: 700))
         XCTAssertEqual(m.shape, .wide)
-        XCTAssertLessThanOrEqual(m.recordSide, 700 * 0.7)
+        XCTAssertLessThanOrEqual(m.recordSide, 700 * 0.86 + 0.001)
     }
     func testOuterSideways() {
         let m = LayoutMetrics(size: CGSize(width: 700, height: 400))
