@@ -18,6 +18,17 @@ import SwiftUI
         }
     }
 
+    /// Launch with `-demo` to render the player with sample data (visual QA only).
+    func loadDemo() {
+        state = MusicState(track: Track(id: "demo", title: "Family Matters", artist: "Demo Artist", album: "Demo",
+                                        artworkURL: nil, duration: 240), isPlaying: true, progress: 83)
+        art = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 600)).image { c in
+            let cg = c.cgContext
+            let g = CGGradient(colorsSpace: nil, colors: [UIColor.systemOrange.cgColor, UIColor.brown.cgColor] as CFArray, locations: [0, 1])!
+            cg.drawLinearGradient(g, start: .zero, end: CGPoint(x: 600, y: 600), options: [])
+        }
+    }
+
     func connect(_ p: MusicProvider) async {
         p.onState = { [weak self] s in Task { @MainActor in self?.apply(s) } }
         do { try await p.authorize(); provider = p; error = nil }

@@ -4,7 +4,9 @@ import SwiftUI
     @StateObject private var model = PlayerModel()
     var body: some Scene {
         WindowGroup {
-            if model.provider == nil { Onboarding(model: model) } else { PlayerView(m: model) }
+            if CommandLine.arguments.contains("-demo") {
+                PlayerView(m: model).onAppear { model.loadDemo() }
+            } else if model.provider == nil { Onboarding(model: model) } else { PlayerView(m: model) }
         }
     }
 }

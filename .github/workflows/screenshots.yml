@@ -1,0 +1,32 @@
+name: Simulator screenshots
+on: [workflow_dispatch, push]
+jobs:
+  shots:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen && xcodegen
+      - name: Build for simulator
+        run: |
+          xcodebuild -project Vinyl.xcodeproj -scheme Vinyl -sdk iphonesimulator -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Run and capture
+        run: |
+          mkdir shots
+          xcrun simctl list devices available | grep -E "iPhone 1[67] Pro Max|iPad Pro" | head -5
+          for NAME in "iPhone 16 Pro Max" "iPad Pro 13-inch (M4)"; do
+            UDID=$(xcrun simctl list devices available | grep "$NAME (" | head -1 | grep -oE '[0-9A-F-]{36}')
+            [ -z "$UDID" ] && { echo "no $NAME"; continue; }
+            xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+            xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/Vinyl.app
+            xcrun simctl launch "$UDID" com.example.vinyl
+            sleep 4; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_onboarding.png"
+            xcrun simctl terminate "$UDID" com.example.vinyl
+            xcrun simctl launch "$UDID" com.example.vinyl -demo
+            sleep 5; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_player.png"
+            xcrun simctl shutdown "$UDID"
+          done
+          ls shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: screenshots, path: shots }
