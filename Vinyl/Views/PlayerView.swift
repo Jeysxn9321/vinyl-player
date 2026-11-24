@@ -95,20 +95,24 @@ struct PlayerView: View {
     @State private var hideTask: Task<Void, Never>?
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
+    @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
+    private var discColor: Color { VinylColor(rawValue: vinylColor)?.color ?? m.tint }
 
     var body: some View {
         GeometryReader { g in
             let lm = LayoutMetrics(size: g.size)
             let wide = lm.shape != .portrait
             let side = lm.recordSide
-            // One layout tree for both shapes, so the spinning disc keeps its state across rotation.
-            let layout = wide ? AnyLayout(HStackLayout(spacing: 24)) : AnyLayout(VStackLayout(spacing: 44))
-            layout {
-                composition(side)
-                VStack(spacing: wide ? 20 : 44) { info(lm.showsProgress); controls }.frame(maxWidth: wide ? .infinity : nil)
+            if wide {
+                HStack(spacing: 24) {
+                    composition(side)
+                    VStack(spacing: 20) { info(lm.showsProgress); controls }.frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 24)
+                .frame(width: g.size.width, height: g.size.height)
+            } else {
+                portrait(g.size)
             }
-            .padding(.horizontal, wide ? 24 : 0)
-            .frame(width: g.size.width, height: g.size.height)
         }
         .overlay(alignment: .top) { pill }
         .contentShape(Rectangle())
@@ -127,9 +131,35 @@ struct PlayerView: View {
     }
 
 
+    /// Full-screen record: disc fills the width with the real cover as its label, tonearm at the right edge,
+    /// title bottom-left, controls underneath.
+    func portrait(_ size: CGSize) -> some View {
+        let d = min(size.width * 1.02, size.height * 0.58)
+        return ZStack(alignment: .topLeading) {
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: "", labelScale: 0.44)
+                .frame(width: d, height: d)
+                .offset(x: (size.width - d) / 2, y: size.height * 0.07)
+            Tonearm(playing: m.state.isPlaying, length: d * 0.62)
+                .offset(x: size.width - d * 0.2, y: size.height * 0.05)
+            VStack(alignment: .leading, spacing: 4) {
+                Spacer()
+                Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
+                Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+                if let t = m.state.track, t.duration > 0 {
+                    ProgressView(value: min(m.state.progress, t.duration), total: t.duration).tint(.white).padding(.top, 10)
+                }
+                controlsRow.padding(.top, 6)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 24).padding(.bottom, 20)
+            .frame(width: size.width, height: size.height, alignment: .bottomLeading)
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
     func composition(_ side: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            SpinningDisc(playing: m.state.isPlaying, color: m.tint, label: m.art, title: m.state.track?.title ?? "")
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "")
                             .frame(width: side, height: side)
                             .offset(x: m.state.isPlaying ? side * 0.82 : side * 0.45)
                             .animation(.spring(response: 0.9, dampingFraction: 0.85), value: m.state.isPlaying)
@@ -185,6 +215,22 @@ struct PlayerView: View {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
             if !Task.isCancelled { withAnimation(.easeIn(duration: 0.5)) { showControls = false } }
         }
+    }
+
+    var controlsRow: some View {
+        HStack(spacing: 36) {
+            btn(m.state.isPlaying ? "pause.fill" : "play.fill", m.state.isPlaying ? "Pause" : "Play") {
+                if m.state.isPlaying { await m.provider?.pause() } else { await m.provider?.play() }
+            }
+            Spacer()
+            btn("backward.fill", "Previous") { await m.provider?.previous() }
+            btn("forward.fill", "Next") { await m.provider?.next() }
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+            }.accessibilityLabel("Settings")
+        }
+        .opacity(showControls ? 1 : 0)
+        .allowsHitTesting(showControls)
     }
 
     var controls: some View {
