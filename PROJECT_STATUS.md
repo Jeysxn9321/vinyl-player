@@ -19,22 +19,22 @@ Widgets, Live Activity, custom lock-screen Now Playing (see below), real-device 
 - The Spotify Web API cannot be polled in the background.
 
 ## Video analysis (ref/sheet_1.png)
-Landscape layout: square sleeve at left edge, record peeking out from behind its right edge (~18% hidden), tonearm pivoting top-right and swinging from near-vertical (rest) to angled over the record (playing). Background is a dark gradient tinted from the artwork; record label/colour follows the album (marbled cream, black with blue label). Only a small "Connecting to Spotify" pill at top; no visible controls. Source updated to match; still uncompiled.
+Landscape layout: square sleeve at left edge, record peeking out from behind its right edge (~18% hidden), tonearm pivoting top-right and swinging from near-vertical (rest) to angled over the record (playing). Background is a dark gradient tinted from the artwork; record label/colour follows the album (marbled cream, black with blue label). Only a small "Connecting to Spotify" pill at top; no visible controls. Source updated to match (since compiled in CI).
 
 ## Cloud build (no Mac)
 `.github/workflows/build-ipa.yml` builds an unsigned IPA on a GitHub macOS runner; AltStore re-signs it on install. Needs the folder pushed to a GitHub repo. Risk: a free Apple ID may not be able to provision the MusicKit capability, so Apple Music may fail on-device; Spotify does not need it.
 
 ## Landscape / wide layout
-`PlayerView` switches to side-by-side (record composition left, title/progress/controls right) when width > height. Verified only in CI simulator screenshots (iPad Pro 13" landscape looks correct; `-demo -landscape` launch args force rotation; simctl screenshots are saved in native orientation and need rotating). iPhone landscape not inspected after rotation. This is not a real iPhone Duo layout.
+`PlayerView` switches to side-by-side (record composition left, title/progress/controls right) when width > height. Verified only in CI simulator screenshots (iPad Pro 13" landscape looks correct; `-demo -landscape` launch args force rotation; simctl screenshots are saved in native orientation and need rotating). iPhone and iPad landscape were inspected in CI screenshots after rotation and look correct (single AnyLayout tree). This is not a real iPhone Duo layout.
 
 ## Latest visual features (CI screenshot checked, iPhone 16 Pro Max)
-"Connecting to Spotify / Apple Music" pill, vinyl tinted from artwork average colour, track title on the record label, controls that fade out and return on tap (demo shows them unless `-hidden`). Pill and hidden-controls state not yet inspected in a screenshot. Real artwork tinting untested (demo uses a gradient).
+"Connecting to Spotify / Apple Music" pill, vinyl tinted from artwork average colour, track title on the record label, controls that fade out and return on tap (demo shows them unless `-hidden`). Pill, settings sheet and hidden-controls state were inspected in CI screenshots and render correctly. Real artwork tinting untested (demo uses a gradient).
 
 ## iPhone Duo (assumption, not measured)
 No Duo simulator or official dimensions available. The Atrium web app (Jeysxn9321/Atrium) handles the Duo purely by available width/height breakpoints, not by device model: unfolded = coarse pointer, min-width 740px and min-height 540px; portrait unfolded = max-width 900px; outer screen held sideways = max-height 560px / 420px; it also reads `viewport.segments` for fold info. No pixel dimensions of the device are in that repo. Lunara's current `width > height` layout follows the same idea, but no Duo-specific breakpoints or fold avoidance are implemented yet.
 
 ## Added after the Duo review (CI-verified: compiles, 4 unit tests pass on a simulator)
-- Settings sheet (gear button under the controls): disconnect, auto-hide controls, tint toggle. Visual check of the sheet not done.
+- Settings sheet (gear button under the controls): disconnect, auto-hide controls, tint toggle. Sheet inspected in a CI screenshot.
 - Spotify silent reconnect on launch from the Keychain refresh token; Apple Music re-requests authorization. Compiles, not tested with a real account.
 - `LayoutMetrics`: portrait / wide / outer-screen-sideways (height <= 420 drops the progress row). Thresholds adapted from Atrium; real Duo point sizes unknown.
 - Unit tests (`VinylTests`) run in the `Build unsigned IPA` workflow.
@@ -57,4 +57,15 @@ No Duo simulator or official dimensions available. The Atrium web app (Jeysxn932
 - Tonearm frame is ~1.25x record height, may crowd the title in portrait; near-square windows (~600x590) may clip the controls row. Not seen on screen.
 - Spotify progress advances in 3 s steps (no interpolation).
 - Apple Music library artwork URLs (`musicKit://`) may not load via URLSession.
-- Duo layouts, tint toggle, hidden-controls state, and everything on a real device remain unverified.
+- A revoked Spotify token never returns the user to onboarding; the last track stays frozen (errors keep last state).
+- A token response arriving after disconnect can still rewrite the Keychain.
+- A post-tap poll is skipped if a timer poll is in flight, so a button can lag up to 3 s.
+- Duo layouts: the `-frame` captures (740x540, 800x1000, 700x400) were unusable (simulator rotated the output, frame bled over white), so Duo is covered only by LayoutMetrics threshold unit tests. Tint-toggle live effect and real artwork tinting not seen.
+- Everything on a real device, with real Spotify/Apple Music accounts, and through AltStore is unverified.
+- Failed restore no longer clears the Keychain token (an earlier draft did; caught in advisor review).
+
+## Unmet requirements (be explicit)
+Widgets / Live Activity not built; custom lock-screen Now Playing not built; Apple Music cannot start playback from Lunara; Duo layout visually unverified.
+
+## Install
+GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. Download, then open in AltStore (My Apps -> + -> pick Vinyl.ipa). Free Apple ID: Apple Music/MusicKit capability may not provision; Spotify path does not need it.

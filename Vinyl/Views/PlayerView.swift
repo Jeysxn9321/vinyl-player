@@ -57,7 +57,7 @@ import SwiftUI
         do {
             try await p.authorize(); provider = p; error = nil
             UserDefaults.standard.set(p.kind.rawValue, forKey: Pref.lastProvider)
-        } catch { p.disconnect(); self.error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
     }
 
     /// Called when the tint setting flips so it applies to the current record immediately.
@@ -83,7 +83,6 @@ import SwiftUI
             if let sp = p as? SpotifyProvider { try await sp.restore() } else { try await p.authorize() }
             provider = p
         } catch {
-            p.disconnect()
             // Only forget the provider when access was really refused, not when offline or on a server error.
             if error is MusicError { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
         }
