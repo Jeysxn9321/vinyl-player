@@ -12,6 +12,7 @@ struct AppleMusicLibraryView: View {
     @State private var searching = false
     @State private var loading = true
     @State private var message: String?
+    @State private var searchError: String?
     private var demo: Bool { CommandLine.arguments.contains("-demo") }
 
     private var shown: [AMItem] { query.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(query) } }
@@ -25,6 +26,7 @@ struct AppleMusicLibraryView: View {
                 if !query.isEmpty {
                     Section("Songs") {
                         if searching { ProgressView() }
+                        else if let searchError { Text(searchError).font(.footnote).foregroundStyle(.orange) }
                         else if songs.isEmpty { Text(query.count < 2 ? "Keep typing to search Apple Music." : "No songs found.").foregroundStyle(.secondary) }
                         ForEach(songs) { s in
                             Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain)
@@ -85,6 +87,7 @@ struct AppleMusicLibraryView: View {
         guard !Task.isCancelled else { return }
         searching = true; defer { searching = false }
         if demo { songs = DemoSongs.all; return }
-        songs = (try? await m.appleMusic?.search(q)) ?? []
+        do { songs = try await m.appleMusic?.search(q) ?? []; searchError = nil }
+        catch { songs = []; searchError = "Apple Music search failed: \(error.localizedDescription)" }
     }
 }
