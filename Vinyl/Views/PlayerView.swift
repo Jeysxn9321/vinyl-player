@@ -172,7 +172,7 @@ struct PlayerView: View {
     func portrait(_ size: CGSize) -> some View {
         let d = min(size.width * 0.86, size.height * 0.42)
         let x0 = (size.width - d) / 2 - size.width * 0.03, y0 = size.height * 0.06
-        let armLen = size.width * 0.46
+        let armLen = d * 0.535
         let aw = armLen * 0.16
         return ZStack(alignment: .topLeading) {
             Circle().fill(tintLight.opacity(0.22))   // soft purple haze behind the record
@@ -180,6 +180,7 @@ struct PlayerView: View {
                 .offset(x: x0 - d * 0.04, y: y0 - d * 0.04)
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
                 .frame(width: d, height: d)
+                .contentShape(Circle()).discGestures(swipe: swipe, tap: discTapped)
                 .offset(x: x0, y: y0)
             Circle().strokeBorder(rim, lineWidth: 5)   // uneven glowing rim: bright arcs bottom-left and top-left
                 .frame(width: d, height: d)
@@ -188,7 +189,7 @@ struct PlayerView: View {
                 .allowsHitTesting(false)
                 .offset(x: x0, y: y0)
             Tonearm(playing: m.state.isPlaying, length: armLen, playAngle: 12, glow: tintLight, onSet: setPlaying)
-                .offset(x: size.width * 0.885 - aw * 1.1, y: y0 + d * 0.03 - aw * 1.1)
+                .offset(x: x0 + d * 0.985 - aw * 1.1, y: y0 + d * 0.03 - aw * 1.1)
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
                 Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
@@ -233,6 +234,20 @@ struct PlayerView: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
+    /// Swipe on the record: left = previous track, right = next track (as the user asked).
+    func swipe(_ dx: CGFloat) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
+        if CommandLine.arguments.contains("-demo") { return }
+        Task { if dx < 0 { await m.provider?.previous() } else { await m.provider?.next() } }
+    }
+    /// Tap on the record while nothing is playing opens the music picker.
+    func discTapped() {
+        guard m.state.track == nil else { return }
+        if m.appleMusic != nil { showAM = true }
+        else if m.spotify != nil { showBrowser = true }
+        else { showSettings = true }
+    }
+
     func seek(_ t: Double) {
         reveal()
         if CommandLine.arguments.contains("-demo") { return }
@@ -254,6 +269,7 @@ struct PlayerView: View {
                 .offset(x: discX - side * 0.04, y: -side * 0.04)
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.46, inlineTitle: false)
                 .frame(width: side, height: side)
+                .contentShape(Circle()).discGestures(swipe: swipe, tap: discTapped)
                 .offset(x: discX)
             Circle().strokeBorder(rim, lineWidth: 5)   // uneven glowing rim
                 .frame(width: side, height: side).blur(radius: 1)
@@ -461,5 +477,16 @@ struct GlowProgress: View {
                     onSeek?(fr * total)
                 })
         }.frame(height: 32)
+    }
+}
+
+
+extension View {
+    /// Horizontal swipe (>40 pt) and plain tap on the record.
+    func discGestures(swipe: @escaping (CGFloat) -> Void, tap: @escaping () -> Void) -> some View {
+        self.onTapGesture(perform: tap)
+            .gesture(DragGesture(minimumDistance: 30).onEnded { g in
+                if abs(g.translation.width) > 40, abs(g.translation.width) > abs(g.translation.height) { swipe(g.translation.width) }
+            })
     }
 }
