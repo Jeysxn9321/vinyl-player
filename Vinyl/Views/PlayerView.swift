@@ -159,12 +159,16 @@ struct PlayerView: View {
     func portrait(_ size: CGSize) -> some View {
         let d = min(size.width * 1.02, size.height * 0.58)
         return ZStack(alignment: .topLeading) {
-            Circle().stroke(tintLight.opacity(0.85), lineWidth: 2)
-                .frame(width: d, height: d).blur(radius: 1.5)
-                .shadow(color: tintLight.opacity(0.7), radius: 26)
-                .offset(x: (size.width - d) / 2, y: size.height * 0.07)
+            Circle().fill(tintLight.opacity(0.18))
+                .frame(width: d * 1.04, height: d * 1.04).blur(radius: 24)
+                .offset(x: (size.width - d * 1.04) / 2, y: size.height * 0.07 - d * 0.02)
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.44, inlineTitle: false)
                 .frame(width: d, height: d)
+                .offset(x: (size.width - d) / 2, y: size.height * 0.07)
+            Circle().strokeBorder(tintLight, lineWidth: 5)   // glowing accent rim, on top of the record edge
+                .frame(width: d, height: d)
+                .shadow(color: tintLight, radius: 10).shadow(color: tintLight.opacity(0.8), radius: 28)
+                .allowsHitTesting(false)
                 .offset(x: (size.width - d) / 2, y: size.height * 0.07)
             Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 10, onSet: setPlaying)
                 .offset(x: size.width - d * 0.22, y: size.height * 0.05)

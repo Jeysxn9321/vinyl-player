@@ -14,9 +14,15 @@ struct VinylDisc: View {
             ZStack {
                 Circle().fill(color)
                 PatternLayer(pattern: pattern).clipShape(Circle())
-                ForEach(0..<28, id: \.self) { i in
-                    Circle().inset(by: s * (0.2 + CGFloat(i) * 0.0165))
-                        .stroke(Color.white.opacity(i % 3 == 0 ? 0.07 : 0.03), lineWidth: 0.6)
+                Circle().strokeBorder(Color.white.opacity(0.28), lineWidth: max(1.5, s * 0.006))   // bright outer edge
+                Circle().inset(by: s * 0.03).stroke(Color.black.opacity(0.35), lineWidth: s * 0.03)   // smooth lead-in band
+                ForEach(0..<34, id: \.self) { i in
+                    Circle().inset(by: s * (0.075 + CGFloat(i) * 0.0125))
+                        .stroke(Color.white.opacity(i % 6 == 0 ? 0.30 : (i % 2 == 0 ? 0.11 : 0.05)), lineWidth: i % 6 == 0 ? 1.2 : 0.7)
+                }
+                ForEach(0..<3, id: \.self) { i in   // darker gaps between tracks
+                    Circle().inset(by: s * (0.2 + CGFloat(i) * 0.09))
+                        .stroke(Color.black.opacity(0.45), lineWidth: s * 0.012)
                 }
                 if dust { DustLayer().clipShape(Circle()) }
                 Group {
@@ -54,22 +60,46 @@ struct Tonearm: View {
     private let restAngle = 4.0
     var body: some View {
         let w = length * 0.16
-        ZStack(alignment: .top) {
-            Circle()                                                          // pivot base: brushed metal disc
-                .fill(AngularGradient(colors: [Color(white: 0.55), Color(white: 0.2), Color(white: 0.7), Color(white: 0.25), Color(white: 0.55)], center: .center))
-                .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
-                .frame(width: w * 2.2).shadow(color: .black.opacity(0.6), radius: 8, y: 4)
-            Capsule()                                                         // arm tube
-                .fill(LinearGradient(colors: [Color(white: 0.5), .white.opacity(0.95), Color(white: 0.5)], startPoint: .leading, endPoint: .trailing))
-                .frame(width: w * 0.16, height: length).offset(y: w)
-            RoundedRectangle(cornerRadius: 3).fill(Color(white: 0.12))        // headshell
-                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.white.opacity(0.3), lineWidth: 0.8))
-                .frame(width: w * 0.7, height: w * 1.3).offset(y: length + w * 0.4)
-            Circle().fill(Color(white: 0.3)).frame(width: w * 0.9)            // pivot cap
+        let W = w * 2.2, H = length + w * 2, cx = W / 2
+        let silver = LinearGradient(colors: [Color(white: 0.95), Color(white: 0.55), Color(white: 0.9)], startPoint: .leading, endPoint: .trailing)
+        ZStack {
+            // Thin arm: straight, then curving in toward the record.
+            Path { p in
+                p.move(to: CGPoint(x: cx, y: w * 1.1))
+                p.addLine(to: CGPoint(x: cx, y: w + length * 0.7))
+                p.addCurve(to: CGPoint(x: cx - w * 0.5, y: w + length + w * 0.05),
+                           control1: CGPoint(x: cx, y: w + length * 0.9),
+                           control2: CGPoint(x: cx - w * 0.5, y: w + length * 0.88))
+            }
+            .stroke(silver, style: StrokeStyle(lineWidth: max(3, w * 0.17), lineCap: .round, lineJoin: .round))
+            .shadow(color: .black.opacity(0.5), radius: 4, x: 2, y: 3)
+            // Angled, rounded headshell with a glowing stylus tip.
+            ZStack {
+                RoundedRectangle(cornerRadius: w * 0.22)
+                    .fill(LinearGradient(colors: [Color(white: 0.28), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
+                    .overlay(RoundedRectangle(cornerRadius: w * 0.22).stroke(Color.white.opacity(0.55), lineWidth: 1))
+                    .frame(width: w * 0.62, height: w * 1.25)
+                Circle().fill(Color.white).frame(width: w * 0.2)
+                    .shadow(color: .white, radius: 6).shadow(color: .white.opacity(0.8), radius: 12)
+                    .offset(y: w * 0.5)
+            }
+            .rotationEffect(.degrees(-14))
+            .position(x: cx - w * 0.62, y: w + length + w * 0.5)
+            .shadow(color: .black.opacity(0.6), radius: 5, y: 3)
+            // Big round brushed-metal base.
+            Circle()
+                .fill(AngularGradient(colors: [Color(white: 0.9), Color(white: 0.35), Color(white: 0.85), Color(white: 0.3), Color(white: 0.9)], center: .center))
+                .overlay(Circle().stroke(Color.white.opacity(0.6), lineWidth: 1.5))
+                .overlay(Circle().inset(by: w * 0.28).stroke(Color.black.opacity(0.35), lineWidth: 2))
+                .overlay(Circle().inset(by: w * 0.5).fill(RadialGradient(colors: [Color(white: 0.8), Color(white: 0.3)], center: .topLeading, startRadius: 0, endRadius: w)))
+                .frame(width: W, height: W)
+                .shadow(color: .black.opacity(0.7), radius: 10, y: 5)
+                .position(x: cx, y: w * 1.1)
+            Circle().fill(Color(white: 0.15)).frame(width: w * 0.35).position(x: cx, y: w * 1.1)
         }
-        .frame(width: w * 2.2, height: length + w * 2, alignment: .top)
+        .frame(width: W, height: H, alignment: .top)
         .contentShape(Rectangle())
-        .rotationEffect(.degrees(drag ?? (playing ? playAngle : restAngle)), anchor: .init(x: 0.5, y: w / (length + w * 2)))
+        .rotationEffect(.degrees(drag ?? (playing ? playAngle : restAngle)), anchor: .init(x: 0.5, y: w * 1.1 / (length + w * 2)))
         .animation(drag == nil ? .spring(response: 1.0, dampingFraction: 0.8) : nil, value: drag)
         .animation(.spring(response: 1.0, dampingFraction: 0.8), value: playing)
         .gesture(DragGesture(minimumDistance: 2)
@@ -118,7 +148,7 @@ struct SpinningDisc: View {
         // Light reflections stay fixed while the record turns.
         .overlay {
             if sheen {
-                Circle().fill(AngularGradient(colors: [.clear, .white.opacity(0.16), .clear, .clear, .white.opacity(0.12), .clear], center: .center))
+                Circle().fill(AngularGradient(colors: [.clear, .white.opacity(0.34), .clear, .clear, .white.opacity(0.26), .clear], center: .center))
                     .allowsHitTesting(false)
             }
         }
