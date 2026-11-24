@@ -12,7 +12,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build
       - name: Run and capture
         run: |
-          mkdir shots
+          mkdir -p shots
           xcrun simctl list devices available | grep -E "iPhone 1[67] Pro Max|iPad Pro" | head -5
           for NAME in "iPhone 16 Pro Max" "iPad Pro 13-inch (M4)"; do
             UDID=$(xcrun simctl list devices available | grep "$NAME (" | head -1 | grep -oE '[0-9A-F-]{36}')
