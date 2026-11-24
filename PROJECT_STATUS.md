@@ -69,3 +69,8 @@ Widgets / Live Activity not built; custom lock-screen Now Playing not built; App
 
 ## Install
 GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. Download, then open in AltStore (My Apps -> + -> pick Vinyl.ipa). Free Apple ID: Apple Music/MusicKit capability may not provision; Spotify path does not need it.
+
+## Rebuild toward the MD Vinyl look (in progress)
+- Done (compiles in CI; screenshots not yet inspected): portrait = full-width record with the real cover as its label, tonearm at the right edge, title/progress/controls bottom-left; vinyl colour presets in Settings; app icon (generated 1024 px, not yet seen on a device).
+- Spotify playlist browser (`PlaylistsView`, `-browser -demo` shows stub data): lists up to 50 playlists via `GET /me/playlists`, search, tap plays via `PUT /me/player/play {context_uri}`. UNTESTED with a real account. Needs new scopes (`playlist-read-private/collaborative`): a login saved earlier lacks them, so the sheet shows "Reconnect Spotify". Spotify's Feb 2026 dev-mode changes limit playlist items to playlists you own, so tracks are not listed. The 3D cover stack, queue view, record patterns/effects, themes and label options from MD Vinyl are NOT built.
+- Rotating the phone now resets the record's spin phase (portrait and wide are separate trees).

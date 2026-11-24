@@ -66,6 +66,14 @@ import SwiftUI
         withAnimation(.easeInOut(duration: 0.4)) { tint = (on && art != nil) ? Self.discTint(art!) : Color(white: 0.06) }
     }
 
+    var spotify: SpotifyProvider? { provider as? SpotifyProvider }
+
+    /// Wipes the saved login and signs in again (needed when the saved token lacks the playlist scopes).
+    func reconnectSpotify() async {
+        provider?.onState = nil; provider?.disconnect(); provider = nil
+        await connect(SpotifyProvider())
+    }
+
     func disconnect() {
         provider?.onState = nil
         provider?.disconnect(); provider = nil; artTask?.cancel(); art = nil; tint = Color(white: 0.06); state = MusicState()
@@ -93,6 +101,7 @@ struct PlayerView: View {
     @ObservedObject var m: PlayerModel
     @State private var showControls = !CommandLine.arguments.contains("-hidden")
     @State private var hideTask: Task<Void, Never>?
+    @State private var showBrowser = CommandLine.arguments.contains("-browser")
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
@@ -120,6 +129,7 @@ struct PlayerView: View {
         .onAppear { if !CommandLine.arguments.contains("-demo") { reveal() } }
         .onChange(of: autoHide) { _, on in if on { reveal() } else { hideTask?.cancel(); showControls = true } }
         .sheet(isPresented: $showSettings) { SettingsView(m: m) }
+        .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }
         .background {
             ZStack {
                 Color.black
@@ -225,6 +235,11 @@ struct PlayerView: View {
             Spacer()
             btn("backward.fill", "Previous") { await m.provider?.previous() }
             btn("forward.fill", "Next") { await m.provider?.next() }
+            if m.spotify != nil || CommandLine.arguments.contains("-demo") {
+                Button { showBrowser = true } label: {
+                    Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                }.accessibilityLabel("Playlists")
+            }
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
             }.accessibilityLabel("Settings")
@@ -243,9 +258,16 @@ struct PlayerView: View {
                         }
                         btn("forward.fill", "Next") { await m.provider?.next() }
                     }
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
-                    }.accessibilityLabel("Settings")
+                    HStack(spacing: 20) {
+                        if m.spotify != nil || CommandLine.arguments.contains("-demo") {
+                            Button { showBrowser = true } label: {
+                                Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                            }.accessibilityLabel("Playlists")
+                        }
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                        }.accessibilityLabel("Settings")
+                    }
         }
         .opacity(showControls ? 1 : 0)
         .allowsHitTesting(showControls)

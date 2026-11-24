@@ -18,6 +18,7 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     private var verifier = ""
     private var session: ASWebAuthenticationSession?   // must be retained until it finishes
     private var active = false                          // false after disconnect: drop late responses
+    private(set) var granted = ""                     // scopes Spotify reports for the current token
     private var polling = false                         // one poll in flight at a time
 
     deinit { timer?.invalidate() }
@@ -32,7 +33,7 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         c.queryItems = [.init(name: "client_id", value: Self.clientID), .init(name: "response_type", value: "code"),
             .init(name: "redirect_uri", value: redirect), .init(name: "code_challenge_method", value: "S256"),
             .init(name: "code_challenge", value: challenge),
-            .init(name: "scope", value: "user-read-playback-state user-modify-playback-state user-read-currently-playing")]
+            .init(name: "scope", value: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative")]
         let url = c.url!
         let cb: URL = try await withCheckedThrowingContinuation { cont in
             DispatchQueue.main.async {
@@ -69,6 +70,7 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
             throw URLError(.badServerResponse)
         }
         token = t
+        if let sc = j?["scope"] as? String { granted = sc }
         if let rt = j?["refresh_token"] as? String { refresh = rt }
         expiry = Date().addingTimeInterval((j?["expires_in"] as? Double ?? 3600) - 60)
     }
@@ -92,12 +94,13 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         catch { expiry = Date().addingTimeInterval(30) }   // back off instead of retrying every poll
     }
 
-    private func call(_ method: String, _ path: String) async -> (Data, Int)? {
+    private func call(_ method: String, _ path: String, body: Data? = nil, root: String = "/me/player") async -> (Data, Int)? {
         await refreshIfNeeded()
         guard active, let token else { return nil }
-        var r = URLRequest(url: URL(string: "https://api.spotify.com/v1/me/player" + path)!)
+        var r = URLRequest(url: URL(string: "https://api.spotify.com/v1" + root + path)!)
         r.httpMethod = method
-        if method != "GET" { r.httpBody = Data() }
+        if method != "GET" { r.httpBody = body ?? Data() }
+        if body != nil { r.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard let (d, resp) = try? await URLSession.shared.data(for: r) else { return nil }
         return (d, (resp as? HTTPURLResponse)?.statusCode ?? 0)
@@ -108,6 +111,39 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     func next() async { _ = await call("POST", "/next"); await settle(500) }
     func previous() async { _ = await call("POST", "/previous"); await settle(500) }
     func seek(to t: TimeInterval) async { _ = await call("PUT", "/seek?position_ms=\(Int(t * 1000))"); await settle() }
+
+    struct Playlist: Identifiable, Equatable {
+        let id: String, name: String, owner: String, uri: String, imageURL: URL?
+    }
+    enum BrowseError: Error, Equatable { case needsReconnect, failed }
+
+    /// First 50 playlists. A token saved before playlist scopes were added gets 403: report `needsReconnect`.
+    func playlists() async throws -> [Playlist] {
+        guard !granted.isEmpty, granted.contains("playlist-read-private") else { throw BrowseError.needsReconnect }
+        guard let (d, status) = await call("GET", "/playlists?limit=50", root: "/me") else { throw BrowseError.failed }
+        if status == 403 { throw BrowseError.needsReconnect }
+        guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let items = j["items"] as? [[String: Any]] else { throw BrowseError.failed }
+        return items.compactMap { i in
+            guard let id = i["id"] as? String, let uri = i["uri"] as? String else { return nil }
+            let img = ((i["images"] as? [[String: Any]])?.first?["url"] as? String).flatMap(URL.init)
+            return Playlist(id: id, name: i["name"] as? String ?? "Playlist",
+                            owner: (i["owner"] as? [String: Any])?["display_name"] as? String ?? "", uri: uri, imageURL: img)
+        }
+    }
+
+    /// Starts a playlist. Returns a message to show when Spotify refuses (no Premium / no active device).
+    func play(contextURI: String) async -> String? {
+        let body = try? JSONSerialization.data(withJSONObject: ["context_uri": contextURI])
+        guard let (_, status) = await call("PUT", "/play", body: body) else { return "Couldn't reach Spotify." }
+        await settle(600)
+        switch status {
+        case 200..<300: return nil
+        case 403: return "Spotify refused. Playback control needs Premium."
+        case 404: return "No active Spotify device. Open Spotify and play something once."
+        default: return "Spotify error \(status)."
+        }
+    }
 
     private func startPolling() {
         active = true
