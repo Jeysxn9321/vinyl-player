@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor final class PlayerModel: ObservableObject {
     @Published var state = MusicState()
     @Published var art: UIImage?
+    @Published var tint: Color = Color(white: 0.06)
     @Published var error: String?
     @Published var provider: MusicProvider?
 
@@ -12,7 +13,7 @@ import SwiftUI
         if changed, let u = s.track?.artworkURL {
             Task {
                 if let (d, _) = try? await URLSession.shared.data(from: u), let i = UIImage(data: d) {
-                    withAnimation(.easeInOut(duration: 0.6)) { art = i }
+                    withAnimation(.easeInOut(duration: 0.6)) { art = i; tint = Self.discTint(i) }
                 }
             }
         }
@@ -27,6 +28,17 @@ import SwiftUI
             let g = CGGradient(colorsSpace: nil, colors: [UIColor.systemOrange.cgColor, UIColor.brown.cgColor] as CFArray, locations: [0, 1])!
             cg.drawLinearGradient(g, start: .zero, end: CGPoint(x: 600, y: 600), options: [])
         }
+        if let a = art { tint = Self.discTint(a) }
+    }
+
+    /// Average colour of the artwork, darkened so the record stays a record.
+    static func discTint(_ i: UIImage) -> Color {
+        var px = [UInt8](repeating: 0, count: 4)
+        guard let cg = i.cgImage, let ctx = CGContext(data: &px, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return Color(white: 0.06) }
+        ctx.interpolationQuality = .medium
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return Color(red: Double(px[0]) / 255 * 0.22, green: Double(px[1]) / 255 * 0.22, blue: Double(px[2]) / 255 * 0.22)
     }
 
     func connect(_ p: MusicProvider) async {
@@ -38,6 +50,8 @@ import SwiftUI
 
 struct PlayerView: View {
     @ObservedObject var m: PlayerModel
+    @State private var showControls = CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-hidden")
+    @State private var hideTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { g in
@@ -61,6 +75,9 @@ struct PlayerView: View {
             }
             .frame(width: g.size.width, height: g.size.height)
         }
+        .overlay(alignment: .top) { pill }
+        .contentShape(Rectangle())
+        .onTapGesture { reveal() }
         .background {
             ZStack {
                 Color.black
@@ -74,7 +91,7 @@ struct PlayerView: View {
 
     func composition(_ side: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            SpinningDisc(playing: m.state.isPlaying, color: Color(white: 0.06), label: m.art)
+            SpinningDisc(playing: m.state.isPlaying, color: m.tint, label: m.art, title: m.state.track?.title ?? "")
                             .frame(width: side, height: side)
                             .offset(x: m.state.isPlaying ? side * 0.82 : side * 0.45)
                             .animation(.spring(response: 0.9, dampingFraction: 0.85), value: m.state.isPlaying)
@@ -105,6 +122,25 @@ struct PlayerView: View {
                     }
         }
     }
+    @ViewBuilder var pill: some View {
+        if m.state.track == nil, let p = m.provider {
+            Text(p.kind == .spotify ? "Connecting to Spotify" : "Connecting to Apple Music")
+                .font(.footnote.weight(.medium)).foregroundStyle(.white)
+                .padding(.horizontal, 14).padding(.vertical, 7)
+                .background(.ultraThinMaterial, in: Capsule()).padding(.top, 8)
+        }
+    }
+
+    /// Controls fade out like the reference video; a tap brings them back for a few seconds.
+    func reveal() {
+        withAnimation(.easeOut(duration: 0.25)) { showControls = true }
+        hideTask?.cancel()
+        hideTask = Task {
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            if !Task.isCancelled { withAnimation(.easeIn(duration: 0.5)) { showControls = false } }
+        }
+    }
+
     var controls: some View {
         VStack(spacing: 18) {
                     HStack(spacing: 44) {
@@ -116,6 +152,8 @@ struct PlayerView: View {
                         btn("forward.fill", "Next") { await m.provider?.next() }
                     }
         }
+        .opacity(showControls ? 1 : 0)
+        .allowsHitTesting(showControls)
     }
 
     func fmt(_ t: TimeInterval) -> String { String(format: "%d:%02d", Int(t) / 60, Int(t) % 60) }

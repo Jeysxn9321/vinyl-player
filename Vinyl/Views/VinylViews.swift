@@ -3,6 +3,7 @@ import SwiftUI
 struct VinylDisc: View {
     var color: Color = .black
     var label: UIImage?
+    var title: String = ""
     var body: some View {
         GeometryReader { g in
             let s = min(g.size.width, g.size.height)
@@ -17,6 +18,9 @@ struct VinylDisc: View {
                     if let label { Image(uiImage: label).resizable().scaledToFill() } else { Color.gray }
                 }
                 .frame(width: s * 0.34, height: s * 0.34).clipShape(Circle())
+                Text(title).font(.system(size: s * 0.028, weight: .semibold)).lineLimit(1)
+                    .foregroundStyle(.white).shadow(color: .black.opacity(0.6), radius: 1)
+                    .frame(width: s * 0.26).offset(y: s * 0.085)
                 Circle().fill(.black).frame(width: s * 0.04)
             }
             .frame(width: s, height: s)
@@ -51,6 +55,7 @@ struct SpinningDisc: View {
     var playing: Bool
     var color: Color
     var label: UIImage?
+    var title: String = ""
     private let period = 1.8   // seconds per revolution
     @State private var accumulated = 0.0   // seconds of spin before current run
     @State private var runStart: Date?
@@ -58,7 +63,7 @@ struct SpinningDisc: View {
     var body: some View {
         TimelineView(.animation(paused: !playing)) { tl in
             let run = runStart.map { tl.date.timeIntervalSince($0) } ?? 0
-            VinylDisc(color: color, label: label)
+            VinylDisc(color: color, label: label, title: title)
                 .rotationEffect(.degrees(((accumulated + run) / period).truncatingRemainder(dividingBy: 1) * 360))
         }
         .onChange(of: playing) { _, p in
