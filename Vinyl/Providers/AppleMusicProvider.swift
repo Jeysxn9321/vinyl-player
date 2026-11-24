@@ -29,7 +29,7 @@ final class AppleMusicProvider: MusicProvider {
         let cur = player.queue.currentEntry
         let idx = entries.firstIndex { $0.id == cur?.id } ?? -1
         func item(_ e: ApplicationMusicPlayer.Queue.Entry, _ n: Int) -> SpotifyProvider.QueueItem {
-            .init(id: n, title: e.title, subtitle: e.subtitle ?? "", imageURL: nil)
+            .init(id: n, title: e.title, subtitle: e.subtitle ?? "", imageURL: nil, artwork: e.artwork)
         }
         let up = entries.enumerated().filter { $0.offset > idx }.prefix(50).map { item($0.element, $0.offset) }
         return .init(now: cur.map { item($0, max(idx, 0)) }, upNext: Array(up))

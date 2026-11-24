@@ -31,8 +31,7 @@ struct QueueView: View {
 
     func row(_ i: SpotifyProvider.QueueItem) -> some View {
         HStack(spacing: 12) {
-            AsyncImage(url: i.imageURL) { $0.resizable().scaledToFill() } placeholder: { Color(white: 0.25) }
-                .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6))
+            ArtThumb(url: i.imageURL, artwork: i.artwork, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(i.title).lineLimit(1)
                 if !i.subtitle.isEmpty { Text(i.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1) }

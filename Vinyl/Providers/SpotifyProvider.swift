@@ -1,4 +1,5 @@
 import Foundation
+import MusicKit
 import AuthenticationServices
 import CryptoKit
 import UIKit
@@ -139,6 +140,8 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
 
     struct QueueItem: Identifiable, Equatable {
         let id: Int, title: String, subtitle: String, imageURL: URL?
+        var artwork: Artwork? = nil   // Apple Music queue rows
+        static func == (a: QueueItem, b: QueueItem) -> Bool { a.id == b.id && a.title == b.title && a.subtitle == b.subtitle && a.imageURL == b.imageURL }
     }
     struct Queue: Equatable { var now: QueueItem?; var upNext: [QueueItem] }
 
