@@ -1,7 +1,7 @@
 import XCTest
 @testable import Vinyl
 
-final class LayoutMetricsTests: XCTestCase {
+@MainActor final class LayoutMetricsTests: XCTestCase {
     func testPortraitPhone() {
         let m = LayoutMetrics(size: CGSize(width: 440, height: 956))
         XCTAssertEqual(m.shape, .portrait)
