@@ -1,4 +1,5 @@
 import SwiftUI
+import MusicKit
 
 /// One playable song row, shared by the Spotify and Apple Music browsers. `id` is the service's own ID (Spotify: URI).
 struct SongItem: Identifiable, Hashable {
@@ -6,6 +7,23 @@ struct SongItem: Identifiable, Hashable {
     var title: String
     var artist: String
     var imageURL: URL?
+    var artwork: Artwork? = nil
+    static func == (a: SongItem, b: SongItem) -> Bool { a.id == b.id }
+    func hash(into h: inout Hasher) { h.combine(id) }
+}
+
+/// Square cover: MusicKit artwork when we have it (library items), else a normal web image.
+struct ArtThumb: View {
+    var url: URL?
+    var artwork: Artwork?
+    var size: CGFloat
+    var body: some View {
+        Group {
+            if let artwork { ArtworkImage(artwork, width: size) }
+            else { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color(white: 0.22) } }
+        }
+        .frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 6))
+    }
 }
 
 struct SongRow: View {
@@ -13,8 +31,7 @@ struct SongRow: View {
     var showsPlay = true
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: s.imageURL) { $0.resizable().scaledToFill() } placeholder: { Color(white: 0.22) }
-                .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6))
+            ArtThumb(url: s.imageURL, artwork: s.artwork, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(s.title).lineLimit(1).foregroundStyle(.primary)
                 if !s.artist.isEmpty { Text(s.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) }

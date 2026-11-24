@@ -9,6 +9,10 @@ struct AMItem: Identifiable, Hashable {
     var subtitle: String
     var imageURL: URL?
     var isAlbum: Bool
+    /// Library artwork is a musicKit:// URL that AsyncImage cannot load; MusicKit's own view can.
+    var artwork: Artwork? = nil
+    static func == (a: AMItem, b: AMItem) -> Bool { a.id == b.id && a.isAlbum == b.isAlbum }
+    func hash(into h: inout Hasher) { h.combine(id); h.combine(isAlbum) }
 }
 
 /// Controls the app's own ApplicationMusicPlayer. MusicKit does not expose the
@@ -63,12 +67,12 @@ final class AppleMusicProvider: MusicProvider {
         for p in pRes.items {
             playlists[p.id.rawValue] = p
             out.append(AMItem(id: p.id.rawValue, name: p.name, subtitle: "Playlist",
-                              imageURL: p.artwork?.url(width: 600, height: 600), isAlbum: false))
+                              imageURL: p.artwork?.url(width: 600, height: 600), isAlbum: false, artwork: p.artwork))
         }
         for a in aRes.items {
             albums[a.id.rawValue] = a
             out.append(AMItem(id: a.id.rawValue, name: a.title, subtitle: a.artistName,
-                              imageURL: a.artwork?.url(width: 600, height: 600), isAlbum: true))
+                              imageURL: a.artwork?.url(width: 600, height: 600), isAlbum: true, artwork: a.artwork))
         }
         return out
     }
@@ -79,7 +83,7 @@ final class AppleMusicProvider: MusicProvider {
         else if let p = playlists[item.id] { list = Array(try await p.with([.tracks]).tracks ?? []) }
         current = list
         return list.map { SongItem(id: $0.id.rawValue, title: $0.title, artist: $0.artistName,
-                                   imageURL: $0.artwork?.url(width: 200, height: 200)) }
+                                   imageURL: $0.artwork?.url(width: 200, height: 200), artwork: $0.artwork) }
     }
 
     /// Apple Music catalog song search. Falls back to the iTunes Search API when MusicKit refuses.

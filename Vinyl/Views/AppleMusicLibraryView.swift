@@ -36,10 +36,7 @@ struct AppleMusicLibraryView: View {
                 ForEach(shown) { item in
                     Button { selected = item } label: {
                         HStack(spacing: 12) {
-                            AsyncImage(url: item.imageURL) { $0.resizable().scaledToFill() } placeholder: {
-                                Color(white: 0.2)
-                            }
-                            .frame(width: 48, height: 48).clipShape(RoundedRectangle(cornerRadius: 6))
+                            ArtThumb(url: item.imageURL, artwork: item.artwork, size: 48)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.name).lineLimit(1)
                                 Text(item.isAlbum ? "Album, \(item.subtitle)" : item.subtitle)
