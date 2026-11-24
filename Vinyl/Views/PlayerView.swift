@@ -125,6 +125,8 @@ struct PlayerView: View {
                 // Landscape: the sleeve and the record as large as fits; a tap brings the controls back for a few seconds.
                 composition(side)
                     .frame(width: g.size.width, height: g.size.height)
+                    .contentShape(Rectangle())
+                    .onTapGesture { if showControls && autoHide { hideTask?.cancel(); withAnimation(.easeIn(duration: 0.3)) { showControls = false } } else { reveal() } }
                     .overlay(alignment: .bottom) {
                         VStack(spacing: 12) { info(lm.showsProgress); controls }
                             .padding(.horizontal, 24).padding(.top, 40).padding(.bottom, 8)
