@@ -19,3 +19,15 @@ targets:
       PRODUCT_BUNDLE_IDENTIFIER: com.example.vinyl
       MARKETING_VERSION: "0.1"
       SWIFT_VERSION: "5.9"
+  VinylTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [VinylTests]
+    dependencies:
+      - target: Vinyl
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Vinyl:
+    build: { targets: { Vinyl: all } }
+    test: { targets: [VinylTests] }

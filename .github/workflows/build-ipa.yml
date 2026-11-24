@@ -6,6 +6,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen && xcodegen
+      - name: Unit tests
+        run: |
+          xcodebuild test -project Vinyl.xcodeproj -scheme Vinyl             -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max' CODE_SIGNING_ALLOWED=NO
       - name: Build
         run: |
           xcodebuild -project Vinyl.xcodeproj -scheme Vinyl -configuration Release \

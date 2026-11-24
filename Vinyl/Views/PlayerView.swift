@@ -13,7 +13,7 @@ import SwiftUI
         if changed, let u = s.track?.artworkURL {
             Task {
                 if let (d, _) = try? await URLSession.shared.data(from: u), let i = UIImage(data: d) {
-                    withAnimation(.easeInOut(duration: 0.6)) { art = i; tint = Self.discTint(i) }
+                    withAnimation(.easeInOut(duration: 0.6)) { art = i; tint = (UserDefaults.standard.object(forKey: Pref.tint) as? Bool ?? true) ? Self.discTint(i) : Color(white: 0.06) }
                 }
             }
         }
@@ -43,8 +43,27 @@ import SwiftUI
 
     func connect(_ p: MusicProvider) async {
         p.onState = { [weak self] s in Task { @MainActor in self?.apply(s) } }
-        do { try await p.authorize(); provider = p; error = nil }
-        catch { self.error = error.localizedDescription }
+        do {
+            try await p.authorize(); provider = p; error = nil
+            UserDefaults.standard.set(p.kind.rawValue, forKey: Pref.lastProvider)
+        } catch { self.error = error.localizedDescription }
+    }
+
+    func disconnect() {
+        provider?.disconnect(); provider = nil; art = nil; state = MusicState()
+        UserDefaults.standard.removeObject(forKey: Pref.lastProvider)
+    }
+
+    /// Silent reconnect on launch. Falls back to onboarding if it fails.
+    func restore() async {
+        guard provider == nil, let raw = UserDefaults.standard.string(forKey: Pref.lastProvider),
+              let kind = ProviderKind(rawValue: raw) else { return }
+        let p: MusicProvider = kind == .spotify ? SpotifyProvider() : AppleMusicProvider()
+        p.onState = { [weak self] s in Task { @MainActor in self?.apply(s) } }
+        do {
+            if let sp = p as? SpotifyProvider { try await sp.restore() } else { try await p.authorize() }
+            provider = p
+        } catch { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
     }
 }
 
@@ -52,22 +71,25 @@ struct PlayerView: View {
     @ObservedObject var m: PlayerModel
     @State private var showControls = CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-hidden")
     @State private var hideTask: Task<Void, Never>?
+    @State private var showSettings = false
+    @AppStorage(Pref.autoHide) private var autoHide = true
 
     var body: some View {
         GeometryReader { g in
-            let wide = g.size.width > g.size.height
-            let side = wide ? min(g.size.width * 0.58 / 2.0, g.size.height * 0.7) : min(g.size.width * 0.9 / 2.0, g.size.height * 0.4)
+            let lm = LayoutMetrics(size: g.size)
+            let wide = lm.shape != .portrait
+            let side = lm.recordSide
             ZStack {
                 if wide {
                     HStack(spacing: 24) {
                         composition(side)
-                        VStack(spacing: 20) { info; controls }.frame(maxWidth: .infinity)
+                        VStack(spacing: 20) { info(lm.showsProgress); controls }.frame(maxWidth: .infinity)
                     }.padding(.horizontal, 24)
                 } else {
                     VStack(spacing: 44) {
                         Spacer(minLength: 0)
                         composition(side)
-                        info
+                        info(lm.showsProgress)
                         controls
                         Spacer(minLength: 0)
                     }
@@ -78,6 +100,7 @@ struct PlayerView: View {
         .overlay(alignment: .top) { pill }
         .contentShape(Rectangle())
         .onTapGesture { reveal() }
+        .sheet(isPresented: $showSettings) { SettingsView(m: m) }
         .background {
             ZStack {
                 Color.black
@@ -106,7 +129,7 @@ struct PlayerView: View {
         .frame(width: side * 2.0, height: side, alignment: .topLeading)
         .accessibilityHidden(true)
     }
-    var info: some View {
+    func info(_ progress: Bool) -> some View {
         VStack(spacing: 14) {
         VStack(spacing: 4) {
                         Text(m.state.track?.title ?? "Nothing playing").font(.title3.bold())
@@ -114,7 +137,7 @@ struct PlayerView: View {
                     }
                     .foregroundStyle(.white)
 
-                    if let t = m.state.track, t.duration > 0 {
+                    if progress, let t = m.state.track, t.duration > 0 {
                         ProgressView(value: min(m.state.progress, t.duration), total: t.duration)
                             .tint(.white).padding(.horizontal, 40)
                         HStack { Text(fmt(m.state.progress)); Spacer(); Text(fmt(t.duration)) }
@@ -135,6 +158,7 @@ struct PlayerView: View {
     func reveal() {
         withAnimation(.easeOut(duration: 0.25)) { showControls = true }
         hideTask?.cancel()
+        guard autoHide else { return }
         hideTask = Task {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
             if !Task.isCancelled { withAnimation(.easeIn(duration: 0.5)) { showControls = false } }
@@ -151,6 +175,9 @@ struct PlayerView: View {
                         }
                         btn("forward.fill", "Next") { await m.provider?.next() }
                     }
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                    }.accessibilityLabel("Settings")
         }
         .opacity(showControls ? 1 : 0)
         .allowsHitTesting(showControls)

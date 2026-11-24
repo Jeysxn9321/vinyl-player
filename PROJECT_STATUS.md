@@ -26,3 +26,9 @@ Landscape layout: square sleeve at left edge, record peeking out from behind its
 
 ## Landscape / wide layout
 `PlayerView` switches to side-by-side (record composition left, title/progress/controls right) when width > height. Verified only in CI simulator screenshots (iPad Pro 13" landscape looks correct; `-demo -landscape` launch args force rotation; simctl screenshots are saved in native orientation and need rotating). iPhone landscape not inspected after rotation. This is not a real iPhone Duo layout.
+
+## Latest visual features (CI screenshot checked, iPhone 16 Pro Max)
+"Connecting to Spotify / Apple Music" pill, vinyl tinted from artwork average colour, track title on the record label, controls that fade out and return on tap (demo shows them unless `-hidden`). Pill and hidden-controls state not yet inspected in a screenshot. Real artwork tinting untested (demo uses a gradient).
+
+## iPhone Duo (assumption, not measured)
+No Duo simulator or official dimensions available. The Atrium web app (Jeysxn9321/Atrium) handles the Duo purely by available width/height breakpoints, not by device model: unfolded = coarse pointer, min-width 740px and min-height 540px; portrait unfolded = max-width 900px; outer screen held sideways = max-height 560px / 420px; it also reads `viewport.segments` for fold info. No pixel dimensions of the device are in that repo. Lunara's current `width > height` layout follows the same idea, but no Duo-specific breakpoints or fold avoidance are implemented yet.

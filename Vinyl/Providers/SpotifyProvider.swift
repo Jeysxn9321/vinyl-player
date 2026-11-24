@@ -58,6 +58,14 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         expiry = Date().addingTimeInterval((j["expires_in"] as? Double ?? 3600) - 60)
     }
 
+    /// Reuse the stored refresh token so the user doesn't sign in on every launch.
+    func restore() async throws {
+        guard let rt = Keychain.get("spotify.refresh") else { throw MusicError.denied }
+        refresh = rt
+        try await tokenRequest(["grant_type": "refresh_token", "refresh_token": rt, "client_id": Self.clientID])
+        await MainActor.run { startPolling() }
+    }
+
     func disconnect() { timer?.invalidate(); token = nil; refresh = nil; onState?(MusicState()) }
 
     private func call(_ method: String, _ path: String) async -> Data? {
@@ -109,6 +117,13 @@ private extension Data {
 }
 
 enum Keychain {
+    static func get(_ k: String) -> String? {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: k,
+                                kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+        var out: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
+        return String(data: d, encoding: .utf8)
+    }
     static func set(_ v: String?, _ k: String) {
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: k]
         SecItemDelete(q as CFDictionary)

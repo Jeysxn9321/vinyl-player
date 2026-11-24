@@ -12,7 +12,7 @@ import SwiftUI
                         sc.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
                     }
                 }
-            } else if model.provider == nil { Onboarding(model: model) } else { PlayerView(m: model) }
+            } else if model.provider == nil { Onboarding(model: model).task { await model.restore() } } else { PlayerView(m: model) }
         }
     }
 }
