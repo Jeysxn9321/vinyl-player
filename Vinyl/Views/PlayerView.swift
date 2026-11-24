@@ -42,13 +42,14 @@ struct PlayerView: View {
     var body: some View {
         GeometryReader { g in
             let wide = g.size.width > g.size.height
-            let side = wide ? min(g.size.height * 0.62, g.size.width * 0.45) : g.size.width * 0.62
+            let side = min(g.size.width * 0.9 / 2.0, g.size.height * (wide ? 0.55 : 0.4))
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let a = m.art {
                     Image(uiImage: a).resizable().scaledToFill().blur(radius: 80).opacity(0.35).ignoresSafeArea()
                 }
                 VStack(spacing: 28) {
+                    Spacer(minLength: 0)
                     // Composition from the reference video: square sleeve at left, record peeking
                     // out from behind its right edge, tonearm pivoting at the top right.
                     ZStack(alignment: .topLeading) {
@@ -62,14 +63,14 @@ struct PlayerView: View {
                         .frame(width: side, height: side).clipped()
                         .shadow(color: .black.opacity(0.7), radius: 24, y: 14)
                         Tonearm(playing: m.state.isPlaying, length: side * 0.95)
-                            .offset(x: side * 1.62, y: side * 0.02)
+                            .offset(x: side * 1.6, y: side * 0.02)
                     }
-                    .frame(width: side * 1.9, height: side, alignment: .topLeading)
+                    .frame(width: side * 2.0, height: side, alignment: .topLeading)
                     .accessibilityHidden(true)
 
                     VStack(spacing: 4) {
                         Text(m.state.track?.title ?? "Nothing playing").font(.title3.bold())
-                        Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.secondary)
+                        Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65))
                     }
                     .foregroundStyle(.white)
 
@@ -77,7 +78,7 @@ struct PlayerView: View {
                         ProgressView(value: min(m.state.progress, t.duration), total: t.duration)
                             .tint(.white).padding(.horizontal, 40)
                         HStack { Text(fmt(m.state.progress)); Spacer(); Text(fmt(t.duration)) }
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary).padding(.horizontal, 40)
+                            .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.65)).padding(.horizontal, 40)
                     }
                     HStack(spacing: 44) {
                         btn("backward.fill", "Previous") { await m.provider?.previous() }
@@ -87,8 +88,11 @@ struct PlayerView: View {
                         }
                         btn("forward.fill", "Next") { await m.provider?.next() }
                     }
+                    Spacer(minLength: 0)
                 }
             }
+            .frame(width: g.size.width, height: g.size.height)
+            .clipped()
         }
     }
 
