@@ -139,6 +139,7 @@ struct SettingsView: View {
                     }
                     Text(SharedStore.available ? "Shared storage with the widgets: available." : "Shared storage with the widgets: NOT available on this install, so the widgets cannot show anything.")
                         .font(.caption).foregroundStyle(SharedStore.available ? Color.secondary : Color.orange)
+                    Text(SharedStore.report).font(.caption2.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                 } header: { Text("Widget collection") } footer: {
                     Text("The “Lunara collection” widget (small, medium, large) shows the records you add here. Not tested on a device yet.")
                 }

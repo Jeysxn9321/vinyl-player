@@ -53,7 +53,7 @@ struct RecordWidgetView: View {
                 Text(s.artist).font(.subheadline).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
             } else {
                 Text("Lunara").font(.headline)
-                Text("Play something to fill this widget.").font(.caption).foregroundStyle(.white.opacity(0.65))
+                Text(SharedStore.available ? "Play something to fill this widget." : "No shared storage with the app (see Lunara Settings).").font(.caption).foregroundStyle(.white.opacity(0.65))
             }
         }
     }

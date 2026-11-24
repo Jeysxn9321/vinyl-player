@@ -25,8 +25,18 @@ enum SharedStore {
         return (t?.count == 10) ? t : nil
     }
 
+    /// Exact App Group IDs the signing profile granted, read from embedded.mobileprovision (present in sideloaded builds).
+    static var profileGroups: [String] {
+        guard let u = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let d = try? Data(contentsOf: u),
+              let a = d.range(of: Data("<?xml".utf8)), let b = d.range(of: Data("</plist>".utf8)),
+              let plist = try? PropertyListSerialization.propertyList(from: d[a.lowerBound..<b.upperBound], format: nil) as? [String: Any],
+              let ent = plist["Entitlements"] as? [String: Any] else { return [] }
+        return (ent["com.apple.security.application-groups"] as? [String]) ?? []
+    }
+
     static var candidates: [String] {
-        var c: [String] = []
+        var c: [String] = profileGroups
         if let alt = (Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String])?.first { c.append(alt) }
         c.append(declared)
         if let t = teamID {
@@ -46,6 +56,14 @@ enum SharedStore {
     }()
 
     static var available: Bool { root != nil }
+
+    /// Shown in Settings so a failure can be diagnosed without a Mac.
+    static var report: String {
+        "profile groups: \(profileGroups.isEmpty ? "none" : profileGroups.joined(separator: ", "))
+team: \(teamID ?? "unknown")
+tried: \(candidates.count)
+using: \(root == nil ? "nothing" : (candidates.first { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil } ?? "?"))"
+    }
 
     static func url(_ name: String) -> URL? { root?.appendingPathComponent(name) }
     static func read(_ name: String) -> Data? { url(name).flatMap { try? Data(contentsOf: $0) } }
@@ -136,7 +154,7 @@ struct CollectionWidgetView: View {
             VStack(spacing: 6) {
                 CollectionDisc(image: nil).frame(width: 54, height: 54)
                 Text("Lunara collection").font(.footnote.bold())
-                Text("Add records in Lunara > Settings.").font(.caption2).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center)
+                Text(SharedStore.available ? "Add records in Lunara > Settings." : "No shared storage with the app.").font(.caption2).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center)
             }.foregroundStyle(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             switch family {
