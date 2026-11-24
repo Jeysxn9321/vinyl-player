@@ -49,6 +49,12 @@ import SwiftUI
         } catch { self.error = error.localizedDescription }
     }
 
+    /// Called when the tint setting flips so it applies to the current record immediately.
+    func retint() {
+        let on = UserDefaults.standard.object(forKey: Pref.tint) as? Bool ?? true
+        withAnimation(.easeInOut(duration: 0.4)) { tint = (on && art != nil) ? Self.discTint(art!) : Color(white: 0.06) }
+    }
+
     func disconnect() {
         provider?.disconnect(); provider = nil; art = nil; state = MusicState()
         UserDefaults.standard.removeObject(forKey: Pref.lastProvider)
@@ -63,7 +69,10 @@ import SwiftUI
         do {
             if let sp = p as? SpotifyProvider { try await sp.restore() } else { try await p.authorize() }
             provider = p
-        } catch { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
+        } catch {
+            // Only forget the provider when access was really refused, not when offline.
+            if error is MusicError { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
+        }
     }
 }
 
@@ -71,7 +80,7 @@ struct PlayerView: View {
     @ObservedObject var m: PlayerModel
     @State private var showControls = CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-hidden")
     @State private var hideTask: Task<Void, Never>?
-    @State private var showSettings = false
+    @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
 
     var body: some View {
@@ -146,12 +155,19 @@ struct PlayerView: View {
         }
     }
     @ViewBuilder var pill: some View {
-        if m.state.track == nil, let p = m.provider {
-            Text(p.kind == .spotify ? "Connecting to Spotify" : "Connecting to Apple Music")
+        if m.state.track == nil, m.provider != nil || m.state.provider != nil {
+            Text(pillText)
                 .font(.footnote.weight(.medium)).foregroundStyle(.white)
                 .padding(.horizontal, 14).padding(.vertical, 7)
                 .background(.ultraThinMaterial, in: Capsule()).padding(.top, 8)
         }
+    }
+
+    var pillText: String {
+        let spotify = (m.provider?.kind ?? m.state.provider) == .spotify
+        let name = spotify ? "Spotify" : "Apple Music"
+        // state.provider is only set once the provider has actually answered.
+        return m.state.provider == nil ? "Connecting to \(name)" : (spotify ? "Nothing playing. Press play in Spotify" : "Nothing playing. Start a song here")
     }
 
     /// Controls fade out like the reference video; a tap brings them back for a few seconds.

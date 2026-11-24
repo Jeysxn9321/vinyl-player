@@ -1,6 +1,7 @@
 import Foundation
 import AuthenticationServices
 import CryptoKit
+import UIKit
 
 /// Spotify Web API with PKCE auth. Current playback is polled every 3s; control endpoints
 /// require Spotify Premium and an active device. Set clientID from your own app at
@@ -91,9 +92,10 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
     }
 
     private func poll() async {
-        guard let d = await call("GET", ""),
-              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let item = j["item"] as? [String: Any] else { return }
+        guard let d = await call("GET", "") else { return }
+        // 204 / no active device: report "connected, nothing playing" instead of staying on "Connecting".
+        guard let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let item = j["item"] as? [String: Any] else { onState?(MusicState(provider: .spotify)); return }
         let album = item["album"] as? [String: Any]
         let img = ((album?["images"] as? [[String: Any]])?.first?["url"] as? String).flatMap(URL.init)
         let artists = (item["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: ", ") ?? ""
@@ -106,7 +108,10 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         onState?(st)
     }
 
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { ASPresentationAnchor() }
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first ?? ASPresentationAnchor()
+    }
 }
 
 private extension Data {

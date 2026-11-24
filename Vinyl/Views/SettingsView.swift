@@ -22,6 +22,7 @@ struct SettingsView: View {
                 Section("Appearance") {
                     Toggle("Hide controls automatically", isOn: $autoHide)
                     Toggle("Tint the record from the artwork", isOn: $tint)
+                        .onChange(of: tint) { _, _ in m.retint() }
                 }
                 Section("About") {
                     Text("Spotify needs Premium and an active device. Apple Music plays only what you start in this app.")

@@ -27,6 +27,17 @@ jobs:
             xcrun simctl terminate "$UDID" com.example.vinyl
             xcrun simctl launch "$UDID" com.example.vinyl -demo -landscape
             sleep 6; xcrun simctl io "$UDID" screenshot "shots/$(echo $NAME | tr -c 'A-Za-z0-9' _)_landscape.png"
+            xcrun simctl terminate "$UDID" com.example.vinyl
+            TAG=$(echo $NAME | tr -c 'A-Za-z0-9' _)
+            shot() { xcrun simctl launch "$UDID" com.example.vinyl -demo "${@:2}"; sleep 5; xcrun simctl io "$UDID" screenshot "shots/${TAG}_$1.png"; xcrun simctl terminate "$UDID" com.example.vinyl; }
+            shot hidden -hidden
+            shot pill -pill -hidden
+            shot settings -settings
+            if echo "$NAME" | grep -q iPad; then
+              shot duo_unfolded_740x540 -frame 740x540
+              shot duo_portrait_800x1000 -frame 800x1000
+              shot duo_outer_700x400 -frame 700x400
+            fi
             xcrun simctl shutdown "$UDID"
           done
           ls shots
