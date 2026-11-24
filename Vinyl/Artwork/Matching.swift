@@ -115,7 +115,7 @@ enum Matching {
             guard cls != .skip, let thumb = secure(img.thumbnails?["500"] ?? img.thumbnails?["large"] ?? img.image) else { return nil }
             let sideK = sideKind(from: img.comment)
             let tagged = cls == .label && img.approved && nameOK
-            let edition = [r.disambiguation, r.country].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+            let edition = Array(NSOrderedSet(array: [r.disambiguation, r.country].compactMap { $0 }.filter { !$0.isEmpty })).compactMap { $0 as? String }.joined(separator: " · ")
             return ArtworkVariant(
                 id: "caa:\(img.id)", kind: cls == .label ? (sideK ?? .vinylLabel) : .edition,
                 verification: tagged ? .tagged : .unverified, source: .musicBrainz,
