@@ -16,3 +16,9 @@ Added QueueView and the 3D playlist stack; moved CI to xcode-27 / Xcode 27.2; fi
 
 ## Round 3 (Live Activity, customisation)
 Added the Live Activity extension, record patterns, effects and themes. Compiles in CI; nothing seen on a device.
+
+## 2026-11-24 (labels, Apple Music library, widget)
+- Label style/size prefs in `VinylDisc`/`SpinningDisc`; portrait now only shows the title on the label for the "Title" style.
+- `AppleMusicProvider.library()/play(_:)`, `AppleMusicLibraryView`, `PlayerModel.appleMusic`, `-ambrowser` CI flag.
+- `Shared/WidgetData.swift` (`WidgetSnapshot` in App Group defaults, `RecordWidgetView`), `LunaraRecordWidget` in the bundle, snapshot written from `LiveActivityController.sync`, `-widget` CI flag.
+- Entitlements files + `ALTAppGroups` in both Info.plists. IPA build now prints `codesign -d --entitlements`: result was "not signed at all" for app and appex.

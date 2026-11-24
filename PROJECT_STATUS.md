@@ -65,7 +65,7 @@ No Duo simulator or official dimensions available. The Atrium web app (Jeysxn932
 - Failed restore no longer clears the Keychain token (an earlier draft did; caught in advisor review).
 
 ## Unmet requirements (be explicit)
-Home-screen widgets not built; label options not built; Apple Music cannot start playback from Lunara; Duo layout visually unverified.
+Apple Music cannot start playback from Lunara; Duo layout visually unverified.
 
 ## Install
 GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. Download, then open in AltStore (My Apps -> + -> pick Vinyl.ipa). Free Apple ID: Apple Music/MusicKit capability may not provision; Spotify path does not need it.
@@ -87,3 +87,9 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 - Lock-screen "Now Playing": Spotify owns the system Now Playing controls, and Lunara plays no audio, so it cannot replace them (faking `MPNowPlayingInfoCenter` would not work). The Live Activity is the Lunara-styled replacement. Apple Music already shows system Now Playing through its own player.
 - The extension has its own bundle ID (`com.example.vinyl.widgets`). With a free Apple ID in AltStore this uses a second App ID of the 10 per week; keep app extensions when AltStore asks.
 - Record patterns (plain, splatter, marble, swirl), effects (light sheen, glow, scratches and dust) and background themes (artwork, midnight, ember, ocean, forest, mono) are in Settings. Seen only in demo screenshots from CI. These are my own design, since the original brief's exact list was not available.
+
+## Update 2026-11-24 (labels, Apple Music playback, home-screen widget)
+- **Label options** (Settings > Label): style Artwork / Solid / Title, size Small / Medium / Large. Verified in CI demo screenshots only.
+- **Apple Music playback from Lunara**: new library browser (`AppleMusicLibraryView`, button in the controls) lists your library playlists and albums and plays them with `ApplicationMusicPlayer`. It compiles, but is **untested**: MusicKit does not run in the simulator, and the MusicKit capability may not provision on a free Apple ID. CI only shows demo rows.
+- **Home-screen widget** (small + medium, "last played"): compiles and renders in a CI screenshot with demo data. It reads the last track from an App Group. The CI build is unsigned and carries **no entitlements** (`codesign` reports "not signed at all"), so whether AltStore's re-signing provides the App Group is **unverified**. If not, the widget shows a static record and "Play something". It does not follow live playback.
+- Nothing from this round has run on a device.
