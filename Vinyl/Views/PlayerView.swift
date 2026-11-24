@@ -44,11 +44,7 @@ struct PlayerView: View {
             let wide = g.size.width > g.size.height
             let side = min(g.size.width * 0.9 / 2.0, g.size.height * (wide ? 0.55 : 0.4))
             ZStack {
-                Color.black.ignoresSafeArea()
-                if let a = m.art {
-                    Image(uiImage: a).resizable().scaledToFill().blur(radius: 80).opacity(0.35).ignoresSafeArea()
-                }
-                VStack(spacing: 28) {
+                VStack(spacing: 44) {
                     Spacer(minLength: 0)
                     // Composition from the reference video: square sleeve at left, record peeking
                     // out from behind its right edge, tonearm pivoting at the top right.
@@ -92,7 +88,14 @@ struct PlayerView: View {
                 }
             }
             .frame(width: g.size.width, height: g.size.height)
-            .clipped()
+        }
+        .background {
+            ZStack {
+                Color.black
+                if let a = m.art {
+                    Image(uiImage: a).resizable().scaledToFill().blur(radius: 80).opacity(0.35)
+                }
+            }.ignoresSafeArea()
         }
     }
 

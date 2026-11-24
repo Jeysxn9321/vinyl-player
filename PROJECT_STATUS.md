@@ -1,6 +1,6 @@
 # Project status
 
-Written on Windows 11. There is no Xcode, Mac, simulator or reference video here, so **nothing has been compiled, run or tested.** All source is unverified.
+Written on Windows 11 with no Mac. GitHub Actions (macos-15) now **compiles the app, builds an unsigned IPA, and captures iPhone 16 Pro Max / iPad Pro 13" simulator screenshots** (`-demo` mode, sample data). Not yet verified: any real device, real Spotify/Apple Music accounts, audio, AltStore install. No iPhone Duo simulator exists; large-canvas layout is approximated with the iPad screenshots.
 
 On a Mac: `brew install xcodegen && xcodegen && open Vinyl.xcodeproj`, add the MusicKit capability, set a team, build.
 
