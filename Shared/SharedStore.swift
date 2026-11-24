@@ -59,10 +59,10 @@ enum SharedStore {
 
     /// Shown in Settings so a failure can be diagnosed without a Mac.
     static var report: String {
-        "profile groups: \(profileGroups.isEmpty ? "none" : profileGroups.joined(separator: ", "))
-team: \(teamID ?? "unknown")
-tried: \(candidates.count)
-using: \(root == nil ? "nothing" : (candidates.first { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil } ?? "?"))"
+        let pg = profileGroups.isEmpty ? "none" : profileGroups.joined(separator: ", ")
+        let used = candidates.first { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil } ?? "nothing"
+        return ["profile groups: " + pg, "team: " + (teamID ?? "unknown"), "tried: " + String(candidates.count), "using: " + used].joined(separator: "
+")
     }
 
     static func url(_ name: String) -> URL? { root?.appendingPathComponent(name) }
