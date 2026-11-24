@@ -11,7 +11,7 @@ On a Mac: `brew install xcodegen && xcodegen && open Vinyl.xcodeproj`, add the M
 - Vinyl disc, tonearm, sleeve, spin driven by accumulated play time, controls, onboarding
 
 ## Not done
-Settings, Now Playing / lock screen, widgets, Live Activity, ambient colour extraction, Duo-specific layout (only width/height responsive), token reload on launch, visual QA, tests, IPA / AltStore.
+Widgets, Live Activity, custom lock-screen Now Playing (see below), real-device verification, AltStore install test.
 
 ## Notes
 - Spotify clientID must be supplied from your own developer app.
@@ -32,3 +32,14 @@ Landscape layout: square sleeve at left edge, record peeking out from behind its
 
 ## iPhone Duo (assumption, not measured)
 No Duo simulator or official dimensions available. The Atrium web app (Jeysxn9321/Atrium) handles the Duo purely by available width/height breakpoints, not by device model: unfolded = coarse pointer, min-width 740px and min-height 540px; portrait unfolded = max-width 900px; outer screen held sideways = max-height 560px / 420px; it also reads `viewport.segments` for fold info. No pixel dimensions of the device are in that repo. Lunara's current `width > height` layout follows the same idea, but no Duo-specific breakpoints or fold avoidance are implemented yet.
+
+## Added after the Duo review (CI-verified: compiles, 4 unit tests pass on a simulator)
+- Settings sheet (gear button under the controls): disconnect, auto-hide controls, tint toggle. Visual check of the sheet not done.
+- Spotify silent reconnect on launch from the Keychain refresh token; Apple Music re-requests authorization. Compiles, not tested with a real account.
+- `LayoutMetrics`: portrait / wide / outer-screen-sideways (height <= 420 drops the progress row). Thresholds adapted from Atrium; real Duo point sizes unknown.
+- Unit tests (`VinylTests`) run in the `Build unsigned IPA` workflow.
+
+## Deliberately not built
+- **Lock-screen Now Playing**: for Apple Music, `ApplicationMusicPlayer` already publishes system Now Playing. For Spotify, playback happens in the Spotify app, which owns the lock screen; Lunara has no audio session, so iOS would not show its info. Faking it would not work.
+- **Widgets / Live Activity**: need an extension target (and normally an App Group); AltStore free accounts have a tight App ID limit, so this risks breaking the install. Left out until the user confirms they have a paid account or accepts the risk.
+- Apple Music has no queue UI, so nothing plays until a queue is set; Spotify is the practical path for now.
