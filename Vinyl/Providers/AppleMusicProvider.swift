@@ -1,5 +1,6 @@
 import Foundation
 import MusicKit
+import MediaPlayer
 
 /// One row in the Apple Music library browser.
 struct AMItem: Identifiable, Hashable {
@@ -21,24 +22,33 @@ final class AppleMusicProvider: MusicProvider {
     private var albums: [String: Album] = [:]
     private var current: [MusicKit.Track] = []   // songs of the album/playlist whose list is open
     private var found: [String: Song] = [:]      // last catalog search
+    /// Fallback when MusicKit catalog search is refused (no developer token on a sideloaded build): results come
+    /// from the free iTunes Search API and play through the system music player by store ID.
+    private let mp = MPMusicPlayerController.applicationMusicPlayer
+    private var useMP = false
+    private var itunes: [String: (title: String, artist: String, album: String, art: URL?, dur: Double)] = [:]
 
     func authorize() async throws {
         let s = await MusicAuthorization.request()
         guard s == .authorized else { throw MusicError.denied }
         await MainActor.run { startPolling() }
     }
-    func disconnect() { timer?.invalidate(); player.stop(); onState?(MusicState()) }
+    func disconnect() { timer?.invalidate(); player.stop(); mp.stop(); useMP = false; onState?(MusicState()) }
 
-    func play() async { try? await player.play(); publish() }
-    func pause() async { player.pause(); publish() }
-    func next() async { try? await player.skipToNextEntry(); publish() }
-    func previous() async { try? await player.skipToPreviousEntry(); publish() }
-    func setShuffle(_ on: Bool) async { player.state.shuffleMode = on ? .songs : .off; publish() }
+    func play() async { if useMP { mp.play() } else { try? await player.play() }; publish() }
+    func pause() async { if useMP { mp.pause() } else { player.pause() }; publish() }
+    func next() async { if useMP { mp.skipToNextItem() } else { try? await player.skipToNextEntry() }; publish() }
+    func previous() async { if useMP { mp.skipToPreviousItem() } else { try? await player.skipToPreviousEntry() }; publish() }
+    func setShuffle(_ on: Bool) async {
+        if useMP { mp.shuffleMode = on ? .songs : .off } else { player.state.shuffleMode = on ? .songs : .off }
+        publish()
+    }
     func setRepeat(_ mode: RepeatMode) async {
+        if useMP { mp.repeatMode = mode == .all ? .all : (mode == .one ? .one : .none); publish(); return }
         player.state.repeatMode = mode == .all ? .all : (mode == .one ? .one : MusicKit.MusicPlayer.RepeatMode.none)
         publish()
     }
-    func seek(to t: TimeInterval) async { player.playbackTime = t; publish() }
+    func seek(to t: TimeInterval) async { if useMP { mp.currentPlaybackTime = t } else { player.playbackTime = t }; publish() }
 
     /// Library playlists and albums (needs an Apple Music library; empty without one).
     func library() async throws -> [AMItem] {
@@ -72,24 +82,62 @@ final class AppleMusicProvider: MusicProvider {
                                    imageURL: $0.artwork?.url(width: 200, height: 200)) }
     }
 
-    /// Apple Music catalog song search (needs an active subscription).
+    /// Apple Music catalog song search. Falls back to the iTunes Search API when MusicKit refuses.
     func search(_ q: String) async throws -> [SongItem] {
-        var r = MusicCatalogSearchRequest(term: q, types: [Song.self])
-        r.limit = 15
-        let res = try await r.response()
+        do {
+            var r = MusicCatalogSearchRequest(term: q, types: [Song.self])
+            r.limit = 15
+            let res = try await r.response()
+            found = [:]
+            for s in res.songs { found[s.id.rawValue] = s }
+            return res.songs.map { SongItem(id: $0.id.rawValue, title: $0.title, artist: $0.artistName,
+                                            imageURL: $0.artwork?.url(width: 200, height: 200)) }
+        } catch {
+            return try await itunesSearch(q)
+        }
+    }
+
+    private func itunesSearch(_ q: String) async throws -> [SongItem] {
+        var c = URLComponents(string: "https://itunes.apple.com/search")!
+        c.queryItems = [.init(name: "term", value: q), .init(name: "media", value: "music"),
+                        .init(name: "entity", value: "song"), .init(name: "limit", value: "15")]
+        let (data, _) = try await URLSession.shared.data(from: c.url!)
+        struct R: Decodable { var results: [I] }
+        struct I: Decodable {
+            var trackId: Int?; var trackName: String?; var artistName: String?
+            var collectionName: String?; var artworkUrl100: String?; var trackTimeMillis: Int?
+        }
+        let items = try JSONDecoder().decode(R.self, from: data).results
         found = [:]
-        for s in res.songs { found[s.id.rawValue] = s }
-        return res.songs.map { SongItem(id: $0.id.rawValue, title: $0.title, artist: $0.artistName,
-                                        imageURL: $0.artwork?.url(width: 200, height: 200)) }
+        var out: [SongItem] = []
+        for i in items {
+            guard let id = i.trackId, let t = i.trackName else { continue }
+            let key = String(id)
+            let art = i.artworkUrl100.flatMap { URL(string: $0.replacingOccurrences(of: "100x100", with: "1200x1200")) }
+            itunes[key] = (t, i.artistName ?? "", i.collectionName ?? "", art, Double(i.trackTimeMillis ?? 0) / 1000)
+            out.append(SongItem(id: key, title: t, artist: i.artistName ?? "",
+                                imageURL: i.artworkUrl100.flatMap { URL(string: $0) }))
+        }
+        return out
     }
 
     /// Plays one song: inside its open album/playlist (fromList) or alone from search results.
     func play(songID: String, fromList: Bool) async -> String? {
         do {
             if fromList, let t = current.first(where: { $0.id.rawValue == songID }) {
+                useMP = false; mp.stop()
                 player.queue = ApplicationMusicPlayer.Queue(for: current, startingAt: t)
             } else if let s = found[songID] {
+                useMP = false; mp.stop()
                 player.queue = ApplicationMusicPlayer.Queue(for: [s])
+            } else if itunes[songID] != nil {
+                player.stop(); useMP = true
+                if MPMediaLibrary.authorizationStatus() == .notDetermined { _ = await withCheckedContinuation { c in MPMediaLibrary.requestAuthorization { c.resume(returning: $0) } } }
+                mp.setQueue(with: [songID])
+                mp.prepareToPlay()
+                mp.play()
+                publish()
+                return nil
             } else { return "That song is no longer available. Go back and reopen it." }
             try await player.play()
             publish()
@@ -102,6 +150,7 @@ final class AppleMusicProvider: MusicProvider {
     /// Starts playback of a library item. Returns an error message, or nil on success.
     func play(_ item: AMItem) async -> String? {
         do {
+            useMP = false; mp.stop()
             if item.isAlbum, let a = albums[item.id] { player.queue = ApplicationMusicPlayer.Queue(for: [a]) }
             else if let p = playlists[item.id] { player.queue = ApplicationMusicPlayer.Queue(for: [p]) }
             else { return "That item is no longer available. Reopen the library." }
@@ -120,6 +169,21 @@ final class AppleMusicProvider: MusicProvider {
 
     private func publish() {
         var st = MusicState(provider: .appleMusic)
+        if useMP {
+            st.isPlaying = mp.playbackState == .playing
+            st.shuffle = mp.shuffleMode != .off && mp.shuffleMode != .default
+            switch mp.repeatMode { case .all: st.repeatMode = .all; case .one: st.repeatMode = .one; default: st.repeatMode = .off }
+            st.progress = mp.currentPlaybackTime
+            if let it = mp.nowPlayingItem {
+                let key = it.playbackStoreID
+                let m = itunes[key]
+                st.track = Track(id: key, title: m?.title ?? (it.title ?? ""), artist: m?.artist ?? (it.artist ?? ""),
+                                 album: m?.album ?? (it.albumTitle ?? ""), artworkURL: m?.art,
+                                 duration: it.playbackDuration > 0 ? it.playbackDuration : (m?.dur ?? 0))
+            }
+            onState?(st)
+            return
+        }
         st.isPlaying = player.state.playbackStatus == .playing
         st.shuffle = player.state.shuffleMode == .songs
         switch player.state.repeatMode { case .all?: st.repeatMode = .all; case .one?: st.repeatMode = .one; default: st.repeatMode = .off }
