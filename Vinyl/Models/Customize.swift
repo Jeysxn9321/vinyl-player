@@ -95,3 +95,19 @@ struct DustLayer: View {
         }
     }
 }
+
+enum LabelStyle: String, CaseIterable {
+    case artwork, solid, text
+    var title: String {
+        switch self { case .artwork: return "Artwork"; case .solid: return "Solid"; case .text: return "Title" }
+    }
+}
+
+enum LabelSize: String, CaseIterable {
+    case small, medium, large
+    var title: String { rawValue.capitalized }
+    var factor: CGFloat { switch self { case .small: return 0.8; case .medium: return 1; case .large: return 1.25 } }
+    /// Multiplier on the per-layout label scale, capped so the label stays inside the innermost groove
+    /// (the grooves start at about 0.62 of the disc diameter) and clear of the tonearm.
+    func scaled(_ base: CGFloat) -> CGFloat { min(base * factor, 0.58) }
+}

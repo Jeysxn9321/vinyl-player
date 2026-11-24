@@ -19,6 +19,23 @@ import SwiftUI
                                             progress: 0.35, tintR: 0.9, tintG: 0.55, tintB: 0.25))
                         .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 24)).padding()
                 }
+            } else if CommandLine.arguments.contains("-widget") {
+                // CI screenshot of the home-screen widget (small and medium), with and without data.
+                let snap = WidgetSnapshot(title: "Family Matters", artist: "Demo Artist", isPlaying: true,
+                                          tintR: 0.9, tintG: 0.55, tintB: 0.25)
+                ZStack {
+                    LinearGradient(colors: [.teal, .indigo], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        HStack(spacing: 16) {
+                            RecordWidgetView(snap: snap, wide: false).padding(16).frame(width: 158, height: 158)
+                                .background(Color.black, in: RoundedRectangle(cornerRadius: 24))
+                            RecordWidgetView(snap: nil, wide: false).padding(16).frame(width: 158, height: 158)
+                                .background(Color.black, in: RoundedRectangle(cornerRadius: 24))
+                        }
+                        RecordWidgetView(snap: snap, wide: true).padding(16).frame(width: 332, height: 158)
+                            .background(Color.black, in: RoundedRectangle(cornerRadius: 24))
+                    }
+                }
             } else if CommandLine.arguments.contains("-demo") {
                 PlayerView(m: model).frame(width: Self.demoSize?.width, height: Self.demoSize?.height).onAppear {
                     model.loadDemo()

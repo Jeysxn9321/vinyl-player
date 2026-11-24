@@ -10,6 +10,8 @@ enum Pref {
     static let fxSheen = "fxSheen"
     static let fxGlow = "fxGlow"
     static let fxDust = "fxDust"
+    static let labelStyle = "labelStyle"
+    static let labelSize = "labelSize"
 }
 
 /// Record colour presets. "auto" follows the artwork tint.
@@ -37,6 +39,8 @@ struct SettingsView: View {
     @AppStorage(Pref.fxSheen) private var sheen = true
     @AppStorage(Pref.fxGlow) private var glow = false
     @AppStorage(Pref.fxDust) private var dust = false
+    @AppStorage(Pref.labelStyle) private var labelStyle = LabelStyle.artwork.rawValue
+    @AppStorage(Pref.labelSize) private var labelSize = LabelSize.medium.rawValue
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -68,6 +72,14 @@ struct SettingsView: View {
                 Section("Record pattern") {
                     Picker("Pattern", selection: $pattern) {
                         ForEach(VinylPattern.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                    }.pickerStyle(.segmented)
+                }
+                Section("Label") {
+                    Picker("Style", selection: $labelStyle) {
+                        ForEach(LabelStyle.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                    }.pickerStyle(.segmented)
+                    Picker("Size", selection: $labelSize) {
+                        ForEach(LabelSize.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                     }.pickerStyle(.segmented)
                 }
                 Section("Effects") {

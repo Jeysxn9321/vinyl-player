@@ -3,7 +3,46 @@ import WidgetKit
 import ActivityKit
 
 @main struct LunaraWidgetBundle: WidgetBundle {
-    var body: some Widget { LunaraLiveActivity() }
+    var body: some Widget {
+        LunaraLiveActivity()
+        LunaraRecordWidget()
+    }
+}
+
+struct RecordEntry: TimelineEntry {
+    let date: Date
+    let snap: WidgetSnapshot?
+}
+
+struct RecordProvider: TimelineProvider {
+    func placeholder(in context: Context) -> RecordEntry { RecordEntry(date: Date(), snap: nil) }
+    func getSnapshot(in context: Context, completion: @escaping (RecordEntry) -> Void) {
+        completion(RecordEntry(date: Date(), snap: WidgetSnapshot.load()))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<RecordEntry>) -> Void) {
+        completion(Timeline(entries: [RecordEntry(date: Date(), snap: WidgetSnapshot.load())], policy: .never))
+    }
+}
+
+struct RecordWidgetRoot: View {
+    var entry: RecordEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        RecordWidgetView(snap: entry.snap, wide: family != .systemSmall)
+            .containerBackground(for: .widget) { Color.black }
+    }
+}
+
+/// Home-screen widget: the last track Lunara saw. Refreshed whenever the app syncs; it cannot follow playback.
+struct LunaraRecordWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "LunaraRecord", provider: RecordProvider()) { entry in
+            RecordWidgetRoot(entry: entry)
+        }
+        .configurationDisplayName("Lunara")
+        .description("The last record you played in Lunara.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
 }
 
 struct LunaraLiveActivity: Widget {

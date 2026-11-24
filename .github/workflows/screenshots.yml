@@ -50,6 +50,10 @@ jobs:
               shot pat_swirl_dust -vinylPattern swirl -vinylColor gold -fxDust YES
               shot theme_ember -appTheme ember -vinylColor black
               shot theme_ocean_settings -appTheme ocean -settings
+              shot label_text_large -labelStyle text -labelSize large -vinylColor red
+              shot label_solid_small -labelStyle solid -labelSize small -vinylColor blue
+              shot am_library -ambrowser
+              xcrun simctl launch "$UDID" com.example.vinyl -widget; sleep 5; snap "shots/${TAG}_widget.png"; xcrun simctl terminate "$UDID" com.example.vinyl
               xcrun simctl launch "$UDID" com.example.vinyl -card; sleep 5; snap "shots/${TAG}_card.png"; xcrun simctl terminate "$UDID" com.example.vinyl
             fi
             if echo "$NAME" | grep -q iPad; then

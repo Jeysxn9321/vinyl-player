@@ -70,6 +70,7 @@ import SwiftUI
     }
 
     var spotify: SpotifyProvider? { provider as? SpotifyProvider }
+    var appleMusic: AppleMusicProvider? { provider as? AppleMusicProvider }
 
     /// Signs in again on the same provider (needed when the saved token lacks the playlist scopes).
     /// A cancel or failure leaves the existing login untouched.
@@ -108,6 +109,7 @@ struct PlayerView: View {
     @State private var hideTask: Task<Void, Never>?
     @State private var showBrowser = CommandLine.arguments.contains("-browser")
     @State private var showQueue = CommandLine.arguments.contains("-queue")
+    @State private var showAM = CommandLine.arguments.contains("-ambrowser")
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @AppStorage(Pref.autoHide) private var autoHide = true
     @AppStorage(Pref.vinylColor) private var vinylColor = VinylColor.auto.rawValue
@@ -138,6 +140,7 @@ struct PlayerView: View {
         .sheet(isPresented: $showSettings) { SettingsView(m: m) }
         .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }
         .sheet(isPresented: $showQueue) { QueueView(m: m) }
+        .sheet(isPresented: $showAM) { AppleMusicLibraryView(m: m) }
         .background {
             ZStack {
                 Color.black
@@ -156,7 +159,7 @@ struct PlayerView: View {
     func portrait(_ size: CGSize) -> some View {
         let d = min(size.width * 1.02, size.height * 0.58)
         return ZStack(alignment: .topLeading) {
-            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: "", labelScale: 0.44)
+            SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.44, inlineTitle: false)
                 .frame(width: d, height: d)
                 .offset(x: (size.width - d) / 2, y: size.height * 0.07)
             Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 10)
@@ -223,7 +226,7 @@ struct PlayerView: View {
         let spotify = (m.provider?.kind ?? m.state.provider) == .spotify
         let name = spotify ? "Spotify" : "Apple Music"
         // state.provider is only set once the provider has actually answered.
-        return m.state.provider == nil ? "Connecting to \(name)" : (spotify ? "Nothing playing. Press play in Spotify" : "Apple Music connected. Playback from Lunara isn't built yet")
+        return m.state.provider == nil ? "Connecting to \(name)" : (spotify ? "Nothing playing. Press play in Spotify" : "Apple Music connected. Pick something from the library button")
     }
 
     /// Controls fade out like the reference video; a tap brings them back for a few seconds.
@@ -245,7 +248,12 @@ struct PlayerView: View {
             Spacer()
             btn("backward.fill", "Previous") { await m.provider?.previous() }
             btn("forward.fill", "Next") { await m.provider?.next() }
-            if m.spotify != nil || CommandLine.arguments.contains("-demo") {
+            if m.appleMusic != nil || CommandLine.arguments.contains("-ambrowser") {
+                Button { showAM = true } label: {
+                    Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                }.accessibilityLabel("Library")
+            }
+            if m.spotify != nil || (CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-ambrowser")) {
                 Button { showQueue = true } label: {
                     Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                 }.accessibilityLabel("Queue")
@@ -272,7 +280,12 @@ struct PlayerView: View {
                         btn("forward.fill", "Next") { await m.provider?.next() }
                     }
                     HStack(spacing: 20) {
-                        if m.spotify != nil || CommandLine.arguments.contains("-demo") {
+                        if m.appleMusic != nil || CommandLine.arguments.contains("-ambrowser") {
+                            Button { showAM = true } label: {
+                                Image(systemName: "square.stack").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                            }.accessibilityLabel("Library")
+                        }
+                        if m.spotify != nil || (CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-ambrowser")) {
                             Button { showQueue = true } label: {
                                 Image(systemName: "list.bullet").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                             }.accessibilityLabel("Queue")

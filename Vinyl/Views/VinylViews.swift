@@ -7,6 +7,7 @@ struct VinylDisc: View {
     var labelScale: CGFloat = 0.34
     var pattern: VinylPattern = .plain
     var dust = false
+    var labelStyle: LabelStyle = .artwork
     var body: some View {
         GeometryReader { g in
             let s = min(g.size.width, g.size.height)
@@ -19,12 +20,21 @@ struct VinylDisc: View {
                 }
                 if dust { DustLayer().clipShape(Circle()) }
                 Group {
-                    if let label { Image(uiImage: label).resizable().scaledToFill() } else { Color.gray }
+                    if labelStyle == .artwork, let label { Image(uiImage: label).resizable().scaledToFill() }
+                    else if labelStyle == .artwork { Color.gray }
+                    else { Circle().fill(color).overlay(Circle().fill(Color.white.opacity(0.28))) }
                 }
                 .frame(width: s * labelScale, height: s * labelScale).clipShape(Circle())
-                Text(title).font(.system(size: s * 0.028, weight: .semibold)).lineLimit(1)
-                    .foregroundStyle(.white).shadow(color: .black.opacity(0.6), radius: 1)
-                    .frame(width: s * 0.26).offset(y: s * 0.085)
+                if labelStyle == .text {
+                    Text(title).font(.system(size: s * labelScale * 0.12, weight: .bold)).multilineTextAlignment(.center)
+                        .lineLimit(3).minimumScaleFactor(0.6)
+                        .foregroundStyle(.white).shadow(color: .black.opacity(0.5), radius: 1)
+                        .frame(width: s * labelScale * 0.7).offset(y: s * labelScale * 0.2)
+                } else {
+                    Text(title).font(.system(size: s * labelScale * 0.082, weight: .semibold)).lineLimit(1)
+                        .foregroundStyle(.white).shadow(color: .black.opacity(0.6), radius: 1)
+                        .frame(width: s * labelScale * 0.76).offset(y: s * labelScale * 0.25)
+                }
                 Circle().fill(.black).frame(width: s * 0.04)
             }
             .frame(width: s, height: s)
@@ -66,6 +76,10 @@ struct SpinningDisc: View {
     @AppStorage(Pref.fxSheen) private var sheen = true
     @AppStorage(Pref.fxGlow) private var glow = false
     @AppStorage(Pref.fxDust) private var dust = false
+    @AppStorage(Pref.labelStyle) private var labelStyle = LabelStyle.artwork.rawValue
+    @AppStorage(Pref.labelSize) private var labelSize = LabelSize.medium.rawValue
+    /// Portrait passes the real title but only shows it on the label for the "Title" style.
+    var inlineTitle = true
     private let period = 1.8   // seconds per revolution
     @State private var accumulated = 0.0   // seconds of spin before current run
     @State private var runStart: Date?
@@ -73,8 +87,11 @@ struct SpinningDisc: View {
     var body: some View {
         TimelineView(.animation(paused: !playing)) { tl in
             let run = runStart.map { tl.date.timeIntervalSince($0) } ?? 0
-            VinylDisc(color: color, label: label, title: title, labelScale: labelScale,
-                      pattern: VinylPattern(rawValue: pattern) ?? .plain, dust: dust)
+            VinylDisc(color: color, label: label,
+                      title: (inlineTitle || labelStyle == LabelStyle.text.rawValue) ? title : "",
+                      labelScale: (LabelSize(rawValue: labelSize) ?? .medium).scaled(labelScale),
+                      pattern: VinylPattern(rawValue: pattern) ?? .plain, dust: dust,
+                      labelStyle: LabelStyle(rawValue: labelStyle) ?? .artwork)
                 .rotationEffect(.degrees(((accumulated + run) / period).truncatingRemainder(dividingBy: 1) * 360))
         }
         // Light reflections stay fixed while the record turns.

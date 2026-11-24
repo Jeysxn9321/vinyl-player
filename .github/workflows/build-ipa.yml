@@ -26,6 +26,9 @@ jobs:
         run: |
           mkdir -p Payload && cp -R build/Build/Products/Release-iphoneos/Vinyl.app Payload/
           ls Payload/Vinyl.app/PlugIns
+          # Diagnostic: are the App Group entitlements embedded in an unsigned build? (widget data sharing needs them)
+          codesign -d --entitlements - Payload/Vinyl.app || echo "app: no signature/entitlements"
+          codesign -d --entitlements - Payload/Vinyl.app/PlugIns/LunaraWidgets.appex || echo "appex: no signature/entitlements"
           zip -qr Vinyl.ipa Payload
       - uses: actions/upload-artifact@v4
         with: { name: Vinyl-ipa, path: Vinyl.ipa }
