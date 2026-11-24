@@ -23,3 +23,6 @@ Landscape layout: square sleeve at left edge, record peeking out from behind its
 
 ## Cloud build (no Mac)
 `.github/workflows/build-ipa.yml` builds an unsigned IPA on a GitHub macOS runner; AltStore re-signs it on install. Needs the folder pushed to a GitHub repo. Risk: a free Apple ID may not be able to provision the MusicKit capability, so Apple Music may fail on-device; Spotify does not need it.
+
+## Landscape / wide layout
+`PlayerView` switches to side-by-side (record composition left, title/progress/controls right) when width > height. Verified only in CI simulator screenshots (iPad Pro 13" landscape looks correct; `-demo -landscape` launch args force rotation; simctl screenshots are saved in native orientation and need rotating). iPhone landscape not inspected after rotation. This is not a real iPhone Duo layout.
