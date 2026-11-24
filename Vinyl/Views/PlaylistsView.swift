@@ -23,7 +23,12 @@ struct PlaylistsView: View {
                 else if needsReconnect {
                     VStack(spacing: 14) {
                         Text("Lunara needs permission to read your playlists.").multilineTextAlignment(.center)
-                        Button("Reconnect Spotify") { Task { await m.reconnectSpotify(); dismiss() } }.buttonStyle(.borderedProminent)
+                        Button("Reconnect Spotify") {
+                            Task {
+                                if await m.reauthorizeSpotify() { needsReconnect = false; loading = true; await load() }
+                                else { message = "Sign-in was cancelled. Your existing login is unchanged." }
+                            }
+                        }.buttonStyle(.borderedProminent)
                     }.padding(30)
                 } else if shown.isEmpty {
                     Text(items.isEmpty ? "No playlists found." : "No match.").foregroundStyle(.secondary).padding(.top, 60)

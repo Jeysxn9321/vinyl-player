@@ -68,10 +68,11 @@ import SwiftUI
 
     var spotify: SpotifyProvider? { provider as? SpotifyProvider }
 
-    /// Wipes the saved login and signs in again (needed when the saved token lacks the playlist scopes).
-    func reconnectSpotify() async {
-        provider?.onState = nil; provider?.disconnect(); provider = nil
-        await connect(SpotifyProvider())
+    /// Signs in again on the same provider (needed when the saved token lacks the playlist scopes).
+    /// A cancel or failure leaves the existing login untouched.
+    func reauthorizeSpotify() async -> Bool {
+        guard let sp = spotify else { return false }
+        return (try? await sp.authorize()) != nil
     }
 
     func disconnect() {
@@ -149,8 +150,8 @@ struct PlayerView: View {
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: "", labelScale: 0.44)
                 .frame(width: d, height: d)
                 .offset(x: (size.width - d) / 2, y: size.height * 0.07)
-            Tonearm(playing: m.state.isPlaying, length: d * 0.62)
-                .offset(x: size.width - d * 0.2, y: size.height * 0.05)
+            Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 14)
+                .offset(x: size.width - d * 0.17, y: size.height * 0.05)
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
                 Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)

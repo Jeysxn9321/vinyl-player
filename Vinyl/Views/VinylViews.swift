@@ -34,6 +34,7 @@ struct VinylDisc: View {
 struct Tonearm: View {
     var playing: Bool
     var length: CGFloat = 200
+    var playAngle: Double = 24
     var body: some View {
         let w = length * 0.16
         ZStack(alignment: .top) {
@@ -46,7 +47,7 @@ struct Tonearm: View {
             Circle().fill(Color(white: 0.2)).frame(width: w * 0.9)            // pivot cap
         }
         .frame(width: w * 2.2, height: length + w * 2, alignment: .top)
-        .rotationEffect(.degrees(playing ? 24 : 4), anchor: .init(x: 0.5, y: w / (length + w * 2)))
+        .rotationEffect(.degrees(playing ? playAngle : 4), anchor: .init(x: 0.5, y: w / (length + w * 2)))
         .animation(.spring(response: 1.0, dampingFraction: 0.8), value: playing)
     }
 }

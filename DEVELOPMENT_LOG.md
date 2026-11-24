@@ -7,3 +7,6 @@
 - Advisor caught a regression I introduced (`p.disconnect()` in failure paths deleted the Keychain refresh token); removed.
 - Viewed CI screenshots (iPhone portrait/hidden/landscape, iPad landscape): layout unchanged and correct. Duo `-frame` captures still unusable.
 - Not fixed: see "Known open issues" in PROJECT_STATUS.md.
+
+## Rebuild round 1 (MD Vinyl direction)
+Portrait became a full-width record with the real cover as label; vinyl colour presets; Spotify playlist browser (new scopes, Reconnect flow); user-supplied app icon. Advisor review caught: reconnect wiping the login, a scope guard that could loop, tonearm landing on the label. All fixed; CI screenshots for the browser sheet added. Still unverified on a device or with a real Spotify account.

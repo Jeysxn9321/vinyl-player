@@ -119,7 +119,7 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
 
     /// First 50 playlists. A token saved before playlist scopes were added gets 403: report `needsReconnect`.
     func playlists() async throws -> [Playlist] {
-        guard !granted.isEmpty, granted.contains("playlist-read-private") else { throw BrowseError.needsReconnect }
+        guard granted.isEmpty || granted.contains("playlist-read-private") else { throw BrowseError.needsReconnect }
         guard let (d, status) = await call("GET", "/playlists?limit=50", root: "/me") else { throw BrowseError.failed }
         if status == 403 { throw BrowseError.needsReconnect }
         guard status == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
