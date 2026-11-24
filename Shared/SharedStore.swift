@@ -61,8 +61,7 @@ enum SharedStore {
     static var report: String {
         let pg = profileGroups.isEmpty ? "none" : profileGroups.joined(separator: ", ")
         let used = candidates.first { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil } ?? "nothing"
-        return ["profile groups: " + pg, "team: " + (teamID ?? "unknown"), "tried: " + String(candidates.count), "using: " + used].joined(separator: "
-")
+        return ["profile groups: " + pg, "team: " + (teamID ?? "unknown"), "tried: " + String(candidates.count), "using: " + used].joined(separator: String(UnicodeScalar(10)))
     }
 
     static func url(_ name: String) -> URL? { root?.appendingPathComponent(name) }
