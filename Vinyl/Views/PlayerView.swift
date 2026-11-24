@@ -150,8 +150,8 @@ struct PlayerView: View {
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: "", labelScale: 0.44)
                 .frame(width: d, height: d)
                 .offset(x: (size.width - d) / 2, y: size.height * 0.07)
-            Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 14)
-                .offset(x: size.width - d * 0.17, y: size.height * 0.05)
+            Tonearm(playing: m.state.isPlaying, length: d * 0.5, playAngle: 10)
+                .offset(x: size.width - d * 0.22, y: size.height * 0.05)
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
                 Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
