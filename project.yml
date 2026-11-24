@@ -1,0 +1,20 @@
+name: Vinyl
+options: { bundleIdPrefix: com.example, deploymentTarget: { iOS: "17.0" } }
+targets:
+  Vinyl:
+    type: application
+    platform: iOS
+    sources: [Vinyl]
+    info:
+      path: Vinyl/Info.plist
+      properties:
+        CFBundleDisplayName: Vinyl
+        UILaunchScreen: {}
+        NSAppleMusicUsageDescription: Vinyl shows and controls your Apple Music playback.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [vinylplayer]
+        LSApplicationQueriesSchemes: [spotify]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.example.vinyl
+      MARKETING_VERSION: "0.1"
+      SWIFT_VERSION: "5.9"
