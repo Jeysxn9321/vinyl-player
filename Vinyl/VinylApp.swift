@@ -15,7 +15,7 @@ struct Onboarding: View {
         ZStack {
             Color.black.ignoresSafeArea()
             VStack(spacing: 20) {
-                Text("Vinyl").font(.system(size: 44, weight: .thin)).foregroundStyle(.white)
+                Text("Lunara").font(.system(size: 44, weight: .thin)).foregroundStyle(.white)
                 Text("Choose where your music lives.").foregroundStyle(.secondary)
                 Button("Apple Music") { Task { await model.connect(AppleMusicProvider()) } }
                     .buttonStyle(.borderedProminent)

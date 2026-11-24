@@ -8,7 +8,7 @@ import CryptoKit
 final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresentationContextProviding {
     let kind = ProviderKind.spotify
     var onState: ((MusicState) -> Void)?
-    static var clientID = ""
+    static var clientID = "70897a5183fd4b5882d54b1614c42309"
     private let redirect = "vinylplayer://callback"
     private var token: String?
     private var refresh: String? { didSet { Keychain.set(refresh, "spotify.refresh") } }

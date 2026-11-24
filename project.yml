@@ -8,7 +8,7 @@ targets:
     info:
       path: Vinyl/Info.plist
       properties:
-        CFBundleDisplayName: Vinyl
+        CFBundleDisplayName: Lunara
         UILaunchScreen: {}
         NSAppleMusicUsageDescription: Vinyl shows and controls your Apple Music playback.
         CFBundleURLTypes:
