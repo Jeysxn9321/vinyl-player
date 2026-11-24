@@ -507,6 +507,9 @@ struct PlayerView: View {
                         Button { showLyrics = true } label: {
                             Image(systemName: "quote.bubble").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
                         }.accessibilityLabel("Lyrics")
+                        Button { showArtwork = true } label: {
+                            Image(systemName: "opticaldisc").font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+                        }.accessibilityLabel("Vinyl artwork")
                     }
         }
         .opacity(showControls ? 1 : 0)
