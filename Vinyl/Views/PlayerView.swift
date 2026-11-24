@@ -159,6 +159,10 @@ struct PlayerView: View {
     func portrait(_ size: CGSize) -> some View {
         let d = min(size.width * 1.02, size.height * 0.58)
         return ZStack(alignment: .topLeading) {
+            Circle().stroke(tintLight.opacity(0.85), lineWidth: 2)
+                .frame(width: d, height: d).blur(radius: 1.5)
+                .shadow(color: tintLight.opacity(0.7), radius: 26)
+                .offset(x: (size.width - d) / 2, y: size.height * 0.07)
             SpinningDisc(playing: m.state.isPlaying, color: discColor, label: m.art, title: m.state.track?.title ?? "", labelScale: 0.44, inlineTitle: false)
                 .frame(width: d, height: d)
                 .offset(x: (size.width - d) / 2, y: size.height * 0.07)
@@ -167,11 +171,30 @@ struct PlayerView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Spacer()
                 Text(m.state.track?.title ?? "Nothing playing").font(.title2.bold()).lineLimit(2)
-                Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+                Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(tintLight).lineLimit(1)
                 if let t = m.state.track, t.duration > 0 {
-                    ProgressView(value: min(m.state.progress, t.duration), total: t.duration).tint(.white).padding(.top, 10)
+                    GlowProgress(value: min(m.state.progress, t.duration), total: t.duration, tint: tintLight).padding(.top, 14)
+                    HStack { Text(fmt(m.state.progress)); Spacer(); Text("-" + fmt(max(0, t.duration - m.state.progress))) }
+                        .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.6))
                 }
-                controlsRow.padding(.top, 6)
+                HStack(spacing: 34) {
+                    Spacer()
+                    btn("backward.fill", "Previous") { await m.provider?.previous() }
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred(); reveal()
+                        Task { if m.state.isPlaying { await m.provider?.pause() } else { await m.provider?.play() } }
+                    } label: {
+                        Image(systemName: m.state.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 30)).foregroundStyle(tintLight)
+                            .frame(width: 78, height: 78)
+                            .background(Circle().fill(Color.black.opacity(0.35)))
+                            .overlay(Circle().stroke(tintLight.opacity(0.9), lineWidth: 2))
+                            .shadow(color: tintLight.opacity(0.6), radius: 14)
+                    }.accessibilityLabel(m.state.isPlaying ? "Pause" : "Play")
+                    btn("forward.fill", "Next") { await m.provider?.next() }
+                    Spacer()
+                }
+                .opacity(showControls ? 1 : 0).allowsHitTesting(showControls).padding(.top, 8)
+                utilityRow.padding(.top, 2)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 24).padding(.bottom, 20)
@@ -244,6 +267,33 @@ struct PlayerView: View {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
             if !Task.isCancelled { withAnimation(.easeIn(duration: 0.5)) { showControls = false } }
         }
+    }
+
+    /// Library / queue / playlists / settings icons.
+    var utilityRow: some View {
+        HStack(spacing: 28) {
+            Spacer()
+            if m.appleMusic != nil || CommandLine.arguments.contains("-ambrowser") {
+                Button { showAM = true } label: { utilIcon("square.stack") }.accessibilityLabel("Library")
+            }
+            if m.spotify != nil || (CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-ambrowser")) {
+                Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
+                Button { showBrowser = true } label: { utilIcon("square.stack") }.accessibilityLabel("Playlists")
+            }
+            Button { showSettings = true } label: { utilIcon("gearshape") }.accessibilityLabel("Settings")
+            Spacer()
+        }
+        .opacity(showControls ? 1 : 0).allowsHitTesting(showControls)
+    }
+    func utilIcon(_ n: String) -> some View {
+        Image(systemName: n).font(.system(size: 20)).foregroundStyle(.white.opacity(0.7)).frame(minWidth: 44, minHeight: 44)
+    }
+    /// Lightened record colour used for accents (progress, play ring); near-white when the record is black.
+    var tintLight: Color {
+        let c = UIColor(discColor)
+        var h: CGFloat = 0, sat: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        c.getHue(&h, saturation: &sat, brightness: &b, alpha: &a)
+        return sat < 0.1 ? Color(white: 0.92) : Color(hue: Double(h), saturation: Double(min(sat, 0.45)), brightness: 0.95)
     }
 
     var controlsRow: some View {
@@ -320,5 +370,22 @@ struct PlayerView: View {
                 .frame(minWidth: 44, minHeight: 44)
         }
         .accessibilityLabel(label)
+    }
+}
+
+/// Slim progress bar with a knob and a soft glow, like the Spotify-style reference.
+struct GlowProgress: View {
+    var value: Double
+    var total: Double
+    var tint: Color
+    var body: some View {
+        GeometryReader { g in
+            let f = total > 0 ? CGFloat(min(max(value / total, 0), 1)) : 0
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.15)).frame(height: 4)
+                Capsule().fill(tint).frame(width: g.size.width * f, height: 4).shadow(color: tint.opacity(0.7), radius: 5)
+                Circle().fill(tint).frame(width: 14, height: 14).offset(x: max(0, g.size.width * f - 7))
+            }.frame(maxHeight: .infinity)
+        }.frame(height: 16)
     }
 }

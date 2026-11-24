@@ -55,13 +55,17 @@ struct Tonearm: View {
     var body: some View {
         let w = length * 0.16
         ZStack(alignment: .top) {
-            Circle().fill(Color.white.opacity(0.08)).frame(width: w * 2.2)      // pivot base
+            Circle()                                                          // pivot base: brushed metal disc
+                .fill(AngularGradient(colors: [Color(white: 0.55), Color(white: 0.2), Color(white: 0.7), Color(white: 0.25), Color(white: 0.55)], center: .center))
+                .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+                .frame(width: w * 2.2).shadow(color: .black.opacity(0.6), radius: 8, y: 4)
             Capsule()                                                         // arm tube
-                .fill(LinearGradient(colors: [.gray, .white.opacity(0.85), .gray], startPoint: .leading, endPoint: .trailing))
-                .frame(width: w * 0.22, height: length).offset(y: w)
-            RoundedRectangle(cornerRadius: 2).fill(Color(white: 0.15))        // headshell
-                .frame(width: w * 0.6, height: w * 1.3).offset(y: length + w * 0.4)
-            Circle().fill(Color(white: 0.2)).frame(width: w * 0.9)            // pivot cap
+                .fill(LinearGradient(colors: [Color(white: 0.5), .white.opacity(0.95), Color(white: 0.5)], startPoint: .leading, endPoint: .trailing))
+                .frame(width: w * 0.16, height: length).offset(y: w)
+            RoundedRectangle(cornerRadius: 3).fill(Color(white: 0.12))        // headshell
+                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.white.opacity(0.3), lineWidth: 0.8))
+                .frame(width: w * 0.7, height: w * 1.3).offset(y: length + w * 0.4)
+            Circle().fill(Color(white: 0.3)).frame(width: w * 0.9)            // pivot cap
         }
         .frame(width: w * 2.2, height: length + w * 2, alignment: .top)
         .contentShape(Rectangle())
