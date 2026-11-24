@@ -323,10 +323,10 @@ struct PlayerView: View {
                 Button { showAM = true } label: { utilIcon("square.stack") }.accessibilityLabel("Library")
             }
             if m.spotify != nil || (CommandLine.arguments.contains("-demo") && !CommandLine.arguments.contains("-ambrowser")) {
-                Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
                 Button { showBrowser = true } label: { utilIcon("square.stack") }.accessibilityLabel("Playlists")
             }
             Button { showSettings = true } label: { utilIcon("gearshape") }.accessibilityLabel("Settings")
+            Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
             Spacer()
         }
         .opacity(showControls ? 1 : 0).allowsHitTesting(showControls)

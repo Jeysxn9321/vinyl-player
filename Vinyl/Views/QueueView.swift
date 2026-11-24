@@ -47,6 +47,7 @@ struct QueueView: View {
                           upNext: names.enumerated().map { .init(id: $0.offset + 1, title: $0.element, subtitle: "Demo Artist", imageURL: nil) })
             return
         }
+        if let am = m.appleMusic { queue = am.queue(); message = nil; return }
         do { queue = try await m.spotify?.queue(); message = nil }
         catch SpotifyProvider.BrowseError.needsReconnect { message = "Spotify refused the queue request. Try Reconnect from Playlists." }
         catch { message = "Couldn't load the queue." }

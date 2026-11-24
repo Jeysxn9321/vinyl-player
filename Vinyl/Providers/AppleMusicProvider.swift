@@ -22,6 +22,18 @@ final class AppleMusicProvider: MusicProvider {
     var onState: ((MusicState) -> Void)?
     private let player = ApplicationMusicPlayer.shared
     private var timer: Timer?
+
+    /// Up-next list from the app's own player queue (empty when playback goes through the system-player fallback).
+    func queue() -> SpotifyProvider.Queue {
+        let entries = Array(player.queue.entries)
+        let cur = player.queue.currentEntry
+        let idx = entries.firstIndex { $0.id == cur?.id } ?? -1
+        func item(_ e: ApplicationMusicPlayer.Queue.Entry, _ n: Int) -> SpotifyProvider.QueueItem {
+            .init(id: n, title: e.title, subtitle: e.subtitle ?? "", imageURL: nil)
+        }
+        let up = entries.enumerated().filter { $0.offset > idx }.prefix(50).map { item($0.element, $0.offset) }
+        return .init(now: cur.map { item($0, max(idx, 0)) }, upNext: Array(up))
+    }
     private var playlists: [String: Playlist] = [:]
     private var albums: [String: Album] = [:]
     private var current: [MusicKit.Track] = []   // songs of the album/playlist whose list is open
