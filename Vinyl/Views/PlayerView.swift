@@ -68,14 +68,51 @@ import Combine
         return Color(red: Double(px[0]) / 255 * 0.22, green: Double(px[1]) / 255 * 0.22, blue: Double(px[2]) / 255 * 0.22)
     }
 
+    /// Providers that are signed in. `provider` is the one driving the player; the others stay connected and can be switched to.
+    @Published private(set) var connected: [ProviderKind: MusicProvider] = [:]
+    private var lastStates: [ProviderKind: MusicState] = [:]
+    private static let connectedKey = "connectedProviders"
+
+    private func wire(_ p: MusicProvider) {
+        p.onState = { [weak self] s in Task { @MainActor in
+            guard let self else { return }
+            self.lastStates[p.kind] = s
+            if self.provider === p || (self.provider == nil && self.busy) { self.apply(s) }
+        } }
+    }
+    private func persist() {
+        UserDefaults.standard.set(connected.keys.map(\.rawValue), forKey: Self.connectedKey)
+        if let k = provider?.kind { UserDefaults.standard.set(k.rawValue, forKey: Pref.lastProvider) }
+        else { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
+    }
+
+    /// Signs in to `p` and makes it the active source. A provider that was already active is paused, not disconnected.
     func connect(_ p: MusicProvider) async {
         guard !busy else { return }   // ignore double taps and taps while a restore runs
         busy = true; defer { busy = false }
-        p.onState = { [weak self] s in Task { @MainActor in if let self, self.busy || self.provider != nil { self.apply(s) } } }
+        wire(p)
         do {
-            try await p.authorize(); provider = p; error = nil
-            UserDefaults.standard.set(p.kind.rawValue, forKey: Pref.lastProvider)
+            try await p.authorize()
+            let old = provider
+            connected[p.kind] = p
+            if let old, old !== p { await old.pause() }
+            provider = p; error = nil
+            if old != nil, old !== p { apply(lastStates[p.kind] ?? MusicState(provider: p.kind)) }
+            persist()
         } catch { self.error = error.localizedDescription }
+    }
+
+    /// Makes an already connected provider the active one, or starts signing in if it is not connected yet.
+    func switchTo(_ kind: ProviderKind) async {
+        if provider?.kind == kind { return }
+        if let p = connected[kind] {
+            await provider?.pause()
+            provider = p
+            apply(lastStates[kind] ?? MusicState(provider: kind))
+            persist()
+        } else {
+            await connect(kind == .spotify ? SpotifyProvider() : AppleMusicProvider())
+        }
     }
 
     /// Called when the tint setting flips so it applies to the current record immediately.
@@ -94,27 +131,46 @@ import Combine
         return (try? await sp.authorize()) != nil
     }
 
-    func disconnect() {
-        provider?.onState = nil
-        LiveActivityController.end()
-        provider?.disconnect(); provider = nil; artTask?.cancel(); art = nil; tint = Color(white: 0.06); state = MusicState()
-        UserDefaults.standard.removeObject(forKey: Pref.lastProvider)
-    }
-
-    /// Silent reconnect on launch. Falls back to onboarding if it fails.
-    func restore() async {
-        guard !busy, provider == nil, let raw = UserDefaults.standard.string(forKey: Pref.lastProvider),
-              let kind = ProviderKind(rawValue: raw) else { return }
-        busy = true; defer { busy = false }
-        let p: MusicProvider = kind == .spotify ? SpotifyProvider() : AppleMusicProvider()
-        p.onState = { [weak self] s in Task { @MainActor in if let self, self.busy || self.provider != nil { self.apply(s) } } }
-        do {
-            if let sp = p as? SpotifyProvider { try await sp.restore() } else { try await p.authorize() }
-            provider = p
-        } catch {
-            // Only forget the provider when access was really refused, not when offline or on a server error.
-            if error is MusicError { UserDefaults.standard.removeObject(forKey: Pref.lastProvider) }
+    /// Signs out of one provider. If it was the active one and another is connected, that one takes over.
+    func disconnect(_ kind: ProviderKind) {
+        guard let p = connected[kind] else { return }
+        p.onState = nil; p.disconnect()
+        connected[kind] = nil; lastStates[kind] = nil
+        if provider === p {
+            if let next = connected.values.first {
+                provider = next; apply(lastStates[next.kind] ?? MusicState(provider: next.kind))
+            } else {
+                LiveActivityController.end()
+                provider = nil; artTask?.cancel(); art = nil; tint = Color(white: 0.06); state = MusicState()
+            }
         }
+        persist()
+    }
+    func disconnect() { if let k = provider?.kind { disconnect(k) } }
+
+    /// Silent reconnect on launch of every saved provider. Falls back to onboarding if none comes back.
+    func restore() async {
+        let d = UserDefaults.standard
+        guard !busy, provider == nil else { return }
+        var kinds = (d.stringArray(forKey: Self.connectedKey) ?? []).compactMap(ProviderKind.init(rawValue:))
+        let last = d.string(forKey: Pref.lastProvider).flatMap(ProviderKind.init(rawValue:))
+        if let last, !kinds.contains(last) { kinds.append(last) }
+        guard !kinds.isEmpty else { return }
+        busy = true; defer { busy = false }
+        for kind in kinds {
+            let p: MusicProvider = kind == .spotify ? SpotifyProvider() : AppleMusicProvider()
+            wire(p)
+            do {
+                if let sp = p as? SpotifyProvider { try await sp.restore() } else { try await p.authorize() }
+                connected[kind] = p
+                if provider == nil || kind == last { provider = p }
+            } catch {
+                // Only forget the provider when access was really refused, not when offline or on a server error.
+                if !(error is MusicError) { connected[kind] = p; if provider == nil { provider = p } }
+            }
+        }
+        if let a = provider, let s = lastStates[a.kind] { apply(s) }
+        persist()
     }
 }
 

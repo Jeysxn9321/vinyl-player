@@ -55,8 +55,20 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("Playback") {
-                    LabeledContent("Source", value: m.provider?.kind == .spotify ? "Spotify" : "Apple Music")
-                    Button("Disconnect", role: .destructive) { m.disconnect(); dismiss() }
+                    ForEach([ProviderKind.appleMusic, .spotify], id: \.rawValue) { k in
+                        let name = k == .spotify ? "Spotify" : "Apple Music"
+                        let on = m.connected[k] != nil
+                        let active = m.provider?.kind == k
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(name)
+                                Text(active ? "Playing from here" : (on ? "Connected" : "Not connected")).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if !active { Button(on ? "Use" : "Connect") { Task { await m.switchTo(k); if m.provider?.kind == k { dismiss() } } }.buttonStyle(.bordered) }
+                            if on { Button("Disconnect", role: .destructive) { m.disconnect(k); if m.provider == nil { dismiss() } }.buttonStyle(.borderless) }
+                        }
+                    }
                 }
                 Section("Appearance") {
                     Toggle("Hide controls automatically", isOn: $autoHide)

@@ -127,3 +127,6 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 ## Widgets: App Group not granted on the sideload (confirmed on device)
 - Settings showed `profile groups: none`: the AltStore install has no App Group, so app and widget cannot share data. The "last played" widget therefore cannot work on this install (needs a signing setup that grants App Groups).
 - The collection widget no longer uses shared storage: it is an AppIntent-configured widget; the user types up to 6 albums in Edit Widget and the widget looks them up on the iTunes Search API itself (refresh every 6 h). NOT tested on a device. The Settings "collection" list was removed.
+
+## Spotify and Apple Music connected together (NOT tested on a device)
+- Both can stay signed in. `PlayerModel.connected` holds them; `provider` is the active one that drives the player. Settings > Playback lists both with Use / Connect / Disconnect. Switching pauses the previous source. Saved list: UserDefaults `connectedProviders`; all saved providers are restored on launch. Both providers run (and poll) while connected. The two never play at the same time on purpose, and the queue/library/lyrics views follow the active one only.
