@@ -15,6 +15,17 @@ struct AMItem: Identifiable, Hashable {
     func hash(into h: inout Hasher) { h.combine(id); h.combine(isAlbum) }
 }
 
+struct AMArtist: Identifiable, Hashable { var id: String; var name: String }
+
+/// Everything a search finds, grouped for the library screen.
+struct AMSearch {
+    var songs: [SongItem] = []
+    var albums: [CatalogAlbum] = []
+    var artists: [AMArtist] = []
+    var playlists: [AMItem] = []
+    var isEmpty: Bool { songs.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty }
+}
+
 /// Controls the app's own ApplicationMusicPlayer. MusicKit does not expose the
 /// system Music app's playback to third parties, so playback must start in this app.
 final class AppleMusicProvider: MusicProvider {
@@ -78,13 +89,11 @@ final class AppleMusicProvider: MusicProvider {
     }
     func seek(to t: TimeInterval) async { if useMP { mp.currentPlaybackTime = t } else { player.playbackTime = t }; publish() }
 
-    /// Library playlists and albums (needs an Apple Music library; empty without one).
+    /// Every library playlist and album (no cap; needs an Apple Music library, empty without one).
     func library() async throws -> [AMItem] {
         var pReq = MusicLibraryRequest<Playlist>()
-        pReq.limit = 50
         let pRes = try await pReq.response()
         var aReq = MusicLibraryRequest<Album>()
-        aReq.limit = 50
         let aRes = try await aReq.response()
         playlists = [:]; albums = [:]
         var out: [AMItem] = []
@@ -114,7 +123,7 @@ final class AppleMusicProvider: MusicProvider {
     func search(_ q: String) async throws -> [SongItem] {
         do {
             var r = MusicCatalogSearchRequest(term: q, types: [Song.self])
-            r.limit = 15
+            r.limit = 25
             let res = try await r.response()
             found = [:]
             for s in res.songs { found[s.id.rawValue] = s }
@@ -128,7 +137,7 @@ final class AppleMusicProvider: MusicProvider {
     private func itunesSearch(_ q: String) async throws -> [SongItem] {
         var c = URLComponents(string: "https://itunes.apple.com/search")!
         c.queryItems = [.init(name: "term", value: q), .init(name: "media", value: "music"),
-                        .init(name: "entity", value: "song"), .init(name: "limit", value: "15")]
+                        .init(name: "entity", value: "song"), .init(name: "limit", value: "50")]
         let (data, _) = try await URLSession.shared.data(from: c.url!)
         struct R: Decodable { var results: [I] }
         struct I: Decodable {
@@ -189,6 +198,56 @@ final class AppleMusicProvider: MusicProvider {
         }
     }
 
+    // MARK: wide catalog search, charts
+    /// Songs, albums, artists and playlists for one query. Albums and artists come from the iTunes Search API
+    /// (works without a developer token); playlists only from MusicKit, so they may be missing on a sideloaded build.
+    func searchAll(_ q: String) async throws -> AMSearch {
+        async let alb = try? itunesGet("search", ["term": q, "media": "music", "entity": "album", "limit": "25"])
+        async let art = try? itunesGet("search", ["term": q, "media": "music", "entity": "musicArtist", "limit": "8"])
+        var out = AMSearch()
+        out.songs = try await search(q)
+        out.playlists = await catalogPlaylists(q)
+        out.albums = (await alb ?? []).compactMap(Self.album)
+        var seen = Set<Int>()
+        out.artists = (await art ?? []).compactMap { r in
+            guard let id = r.artistId, let n = r.artistName, seen.insert(id).inserted else { return nil }
+            return AMArtist(id: String(id), name: n)
+        }
+        return out
+    }
+
+    private func catalogPlaylists(_ q: String) async -> [AMItem] {
+        var r = MusicCatalogSearchRequest(term: q, types: [Playlist.self])
+        r.limit = 15
+        guard let res = try? await r.response() else { return [] }
+        return res.playlists.map { p in
+            playlists[p.id.rawValue] = p
+            return AMItem(id: p.id.rawValue, name: p.name, subtitle: p.curatorName.map { "Playlist, \($0)" } ?? "Playlist",
+                          imageURL: p.artwork?.url(width: 600, height: 600), isAlbum: false, artwork: p.artwork)
+        }
+    }
+
+    /// Current top albums of the user's store (Apple's public RSS feed); falls back to the US store.
+    func topAlbums() async throws -> [CatalogAlbum] {
+        let region = (Locale.current.region?.identifier ?? "US").lowercased()
+        for cc in [region, "us"] {
+            guard let u = URL(string: "https://itunes.apple.com/\(cc)/rss/topalbums/limit=50/json"),
+                  let (d, _) = try? await URLSession.shared.data(from: u),
+                  let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                  let entries = (j["feed"] as? [String: Any])?["entry"] as? [[String: Any]], !entries.isEmpty else { continue }
+            func label(_ e: [String: Any], _ k: String) -> String? { (e[k] as? [String: Any])?["label"] as? String }
+            return entries.compactMap { e in
+                guard let id = ((e["id"] as? [String: Any])?["attributes"] as? [String: Any])?["im:id"] as? String,
+                      let name = label(e, "im:name") else { return nil }
+                let img = ((e["im:image"] as? [[String: Any]])?.last?["label"] as? String)
+                    .flatMap { URL(string: $0.replacingOccurrences(of: "170x170bb", with: "400x400bb")) }
+                return CatalogAlbum(id: id, title: name, artist: label(e, "im:artist") ?? "",
+                                    year: String((label(e, "im:releaseDate") ?? "").prefix(4)), imageURL: img)
+            }
+        }
+        return []
+    }
+
     // MARK: artist / album browsing (tap the artist or title on the player)
     // Uses the public iTunes Search API (no sign-in), like the search fallback; playback goes through the system player.
     private struct ITResult: Decodable {
@@ -210,8 +269,11 @@ final class AppleMusicProvider: MusicProvider {
     }
     func artistAlbums(name: String, id: String?) async throws -> [CatalogAlbum] {
         let first = name.components(separatedBy: CharacterSet(charactersIn: ",&")).first?.trimmingCharacters(in: .whitespaces) ?? name
-        let found = try await itunesGet("search", ["term": first, "media": "music", "entity": "musicArtist", "limit": "1"])
-        guard let aid = found.first?.artistId else { return [] }
+        var known = id.flatMap { Int($0) }
+        if known == nil {
+            known = try await itunesGet("search", ["term": first, "media": "music", "entity": "musicArtist", "limit": "1"]).first?.artistId
+        }
+        guard let aid = known else { return [] }
         let res = try await itunesGet("lookup", ["id": String(aid), "entity": "album", "limit": "200"])
         var seen = Set<String>()
         return res.filter { $0.wrapperType == "collection" }.compactMap(Self.album)
