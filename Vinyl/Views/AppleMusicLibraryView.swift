@@ -46,10 +46,10 @@ struct AppleMusicLibraryView: View {
                     if searching { ProgressView() }
                     else if let searchError { Text(searchError).font(.footnote).foregroundStyle(.orange) }
                     else if results.isEmpty { Text(query.count < 2 ? "Keep typing to search Apple Music." : "Nothing found.").foregroundStyle(.secondary) }
-                    if !results.artists.isEmpty {
-                        Section("Artists") {
-                            ForEach(results.artists) { a in
-                                Button { artist = a } label: { Label(a.name, systemImage: "music.mic").foregroundStyle(.primary) }
+                    if !results.songs.isEmpty {
+                        Section("Songs") {
+                            ForEach(results.songs) { s in
+                                Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
                             }
                         }
                     }
@@ -80,10 +80,10 @@ struct AppleMusicLibraryView: View {
                             }
                         }
                     }
-                    if !results.songs.isEmpty {
-                        Section("Songs") {
-                            ForEach(results.songs) { s in
-                                Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
+                    if !results.artists.isEmpty {
+                        Section("Artists") {
+                            ForEach(results.artists) { a in
+                                Button { artist = a } label: { Label(a.name, systemImage: "music.mic").foregroundStyle(.primary) }
                             }
                         }
                     }
