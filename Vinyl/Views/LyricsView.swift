@@ -66,16 +66,24 @@ enum LyricsLoader {
     }
     private static func ss404(_ s: Int) -> Result? { s == 404 ? Result.none : nil }
 
+    /// Handles CRLF, several timestamps on one line (`[00:10.0][00:50.0]text`) and ignores tags like `[ar:Artist]`.
     static func parseLRC(_ s: String) -> [LyricLine] {
-        var out: [LyricLine] = []
-        for raw in s.components(separatedBy: "\n") {
-            guard raw.hasPrefix("["), let close = raw.firstIndex(of: "]") else { continue }
-            let stamp = raw[raw.index(after: raw.startIndex)..<close].split(separator: ":")
-            guard stamp.count == 2, let mm = Double(stamp[0]), let ss = Double(stamp[1]) else { continue }
-            let text = raw[raw.index(after: close)...].trimmingCharacters(in: .whitespaces)
-            out.append(LyricLine(id: out.count, time: mm * 60 + ss, text: text))
+        var stamped: [(TimeInterval, String)] = []
+        for rawLine in s.split(omittingEmptySubsequences: false, whereSeparator: { $0 == "
+" || $0 == "
+" || $0 == "" }) {
+            var rest = Substring(rawLine.trimmingCharacters(in: .whitespaces))
+            var times: [TimeInterval] = []
+            while rest.hasPrefix("["), let close = rest.firstIndex(of: "]") {
+                let parts = rest[rest.index(after: rest.startIndex)..<close].split(separator: ":")
+                guard parts.count == 2, let mm = Double(parts[0]), let ss = Double(parts[1]) else { break }
+                times.append(mm * 60 + ss)
+                rest = rest[rest.index(after: close)...]
+            }
+            let text = rest.trimmingCharacters(in: .whitespaces)
+            for t in times { stamped.append((t, text)) }
         }
-        return out
+        return stamped.sorted { $0.0 < $1.0 }.enumerated().map { LyricLine(id: $0.offset, time: $0.element.0, text: $0.element.1) }
     }
 }
 

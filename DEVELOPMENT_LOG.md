@@ -27,3 +27,12 @@ Added the Live Activity extension, record patterns, effects and themes. Compiles
 - New `Vinyl/Artwork/*` (models, Matching, MusicBrainz/CAA provider with rate limiter + backoff, Discogs proxy provider, ArtworkStore, ArtworkCenter, ArtworkSelectorView), `VinylTests/ArtworkTests.swift` + 4 recorded fixtures, `backend/discogs-proxy/`.
 - PlayerModel owns an `ArtworkCenter`; `discLabel` feeds both `SpinningDisc`s; label overlay gestures (tap/swipe/long-press); utility-row button; Settings section; `-artwork` CI flag + screenshot.
 - Unit tests pass in CI; nothing run on a device; Discogs never run live.
+
+## 2026-11-24 to 2026-11-25 (rebuilt from git history; nothing below was run on a device)
+- 11-24: Browse playlists/albums/songs with direct playback (Spotify + Apple Music), shuffle/repeat, seekable progress, drag-the-tonearm to play/pause, record and tonearm redesigns (portrait and landscape), queue view with artwork and jump-to-row, Apple Music search through the iTunes Search API fallback.
+- 11-24: Vinyl artwork variants from MusicBrainz / Cover Art Archive, selector, optional Discogs (personal token in the Keychain, or your own proxy; Discogs never run live). Widgets: collection widget with typed albums, shared container diagnostics (no App Group under AltStore). Both services can stay connected and be switched in Settings.
+- 11-24: Artist discography, album page, LRCLIB lyrics, Apple Music style lyrics screen, full-screen cover and landscape two-column lyrics.
+- 11-25: Live Activity vinyl card with tonearm, tinted bar and timer.
+- 11-25 (batch 1): sleep timer (keeps the screen on while armed because the app is suspended when locked), AirPlay button (Apple Music only), "Play next" / "Add to queue" from song rows. Reordering the queue was skipped: no verified safe API path.
+- 11-25 (batch 2): save to library / Liked Songs, add to playlist, lyrics romanisation (system) and translation (iOS 18 Translation framework). Spotify scopes extended, older logins must reconnect.
+- 11-25 (batch 3): estimated A/B sides in the album page (split by track count; labelled as an estimate), LRC parser fixed for CRLF and repeated timestamps, offline unit tests for the parser, side split and ID helpers.

@@ -135,6 +135,11 @@ struct AlbumTracksView: View {
     @State private var songs: [SongItem] = []
     @State private var loading = true
     @State private var message: String?
+    @State private var sides = false
+
+    func row(_ s: SongItem) -> some View {
+        Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
+    }
 
     var body: some View {
         List {
@@ -149,8 +154,16 @@ struct AlbumTracksView: View {
             if let message { Text(message).foregroundStyle(.orange) }
             if loading { ProgressView() }
             else if songs.isEmpty, message == nil { Text("No songs found.").foregroundStyle(.secondary) }
-            ForEach(songs) { s in
-                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
+            if songs.count >= 4 {
+                Toggle("Vinyl sides (estimated)", isOn: $sides)
+                if sides { Text("Estimated: the album is cut in half by track count. Real pressings can differ, and no music service provides the true side split.").font(.caption).foregroundStyle(.secondary) }
+            }
+            if sides && songs.count >= 4 {
+                let parts = AlbumSides.split(songs)
+                Section("Side A") { ForEach(parts.a) { row($0) } }
+                Section("Side B") { ForEach(parts.b) { row($0) } }
+            } else {
+                ForEach(songs) { row($0) }
             }
         }
         .navigationTitle(album.title).navigationBarTitleDisplayMode(.inline)
