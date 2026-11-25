@@ -97,9 +97,10 @@ struct LyricsView: View {
                     .overlay(Color.black.opacity(0.25)).ignoresSafeArea()
                 if wide {
                     HStack(spacing: 0) {
-                        sideColumn(height: g.size.height).frame(width: g.size.width * 0.38)
-                        content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        sideColumn(width: g.size.width * 0.42, height: g.size.height)
+                        content.padding(.leading, 40).frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                    closeButton.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 } else {
                     VStack(spacing: 0) { header; content }
                 }
@@ -110,10 +111,9 @@ struct LyricsView: View {
     }
 
     /// Landscape: big cover, title and artist on the left, lyrics on the right.
-    private func sideColumn(height: CGFloat) -> some View {
-        let side = min(height * 0.55, 340)
+    private func sideColumn(width: CGFloat, height: CGFloat) -> some View {
+        let side = max(120, min(height * 0.5, width - 120, 300))
         return VStack(alignment: .leading, spacing: 14) {
-            closeButton
             Spacer(minLength: 0)
             Group {
                 if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color.white.opacity(0.15) }
@@ -125,8 +125,8 @@ struct LyricsView: View {
             }.frame(width: side, alignment: .leading)
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.leading, 40).padding(.vertical, 24)
+        .frame(width: width, alignment: .center)
+        .padding(.vertical, 24)
     }
 
     private var closeButton: some View {
