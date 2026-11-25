@@ -156,7 +156,7 @@ struct SpinningDisc: View {
     @State private var accumulated = 0.0   // seconds of spin before current run
     @State private var runStart: Date?
     @State private var coastStart: Date?   // after a pause the platter keeps turning for 3 more revolutions, slowing to a stop
-    private var coastTime: Double { period * 6 }   // linear slow-down covering 3 turns: distance = T/2 = 3 periods
+    private var coastTime: Double { period * 3 }   // linear slow-down: distance = T/2 = 1.5 periods (halved from 3 turns on request)
     private func coastDistance(_ t: Double) -> Double { let c = min(max(t, 0), coastTime); return c - c * c / (2 * coastTime) }
 
     var body: some View {

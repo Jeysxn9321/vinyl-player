@@ -130,3 +130,5 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 
 ## Spotify and Apple Music connected together (NOT tested on a device)
 - Both can stay signed in. `PlayerModel.connected` holds them; `provider` is the active one that drives the player. Settings > Playback lists both with Use / Connect / Disconnect. Switching pauses the previous source. Saved list: UserDefaults `connectedProviders`; all saved providers are restored on launch. Both providers run (and poll) while connected. The two never play at the same time on purpose, and the queue/library/lyrics views follow the active one only.
+
+- Platter coast-down halved (now about 1.5 turns, 10.8 s to stop instead of 21.6 s). Not tested on a device.
