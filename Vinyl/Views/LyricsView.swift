@@ -89,16 +89,34 @@ struct LyricsView: View {
     ].enumerated().map { LyricLine(id: $0.offset, time: Double($0.offset) * 12, text: $0.element) }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            // Apple Music look: a soft colour wash taken from the cover, slowly shifting.
+            LinearGradient(colors: [m.tint.opacity(1), m.tint.opacity(0.55), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .overlay(Color.black.opacity(0.25)).ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
                 content
             }
-            .navigationTitle(m.state.track?.title ?? "Lyrics").navigationBarTitleDisplayMode(.inline)
-            .toolbar { Button("Done") { dismiss() } }
         }
         .preferredColorScheme(.dark)
         .task(id: m.state.track?.id) { await load() }
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Group {
+                if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color.white.opacity(0.15) }
+            }.frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(m.state.track?.title ?? "Lyrics").font(.headline).lineLimit(1)
+                Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+            }
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark").font(.subheadline.bold()).padding(10).background(.white.opacity(0.18), in: Circle())
+            }.foregroundStyle(.white)
+        }
+        .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 8)
     }
 
     @ViewBuilder var content: some View {
@@ -120,25 +138,30 @@ struct LyricsView: View {
         let now = m.state.progress
         let current = synced ? lines.lastIndex { ($0.time ?? .infinity) <= now + 0.25 } : nil
         return ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 22) {
+                    Spacer().frame(height: 40)
                     ForEach(Array(lines.enumerated()), id: \.element.id) { i, l in
+                        let d = current.map { abs(i - $0) } ?? 0
                         let on = !synced || i == current
-                        Text(l.text.isEmpty ? "♪" : l.text)
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(.white.opacity(on ? 1 : 0.35))
+                        Text(l.text.isEmpty ? "•••" : l.text)
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(.white.opacity(on ? 1 : (current.map { i < $0 } == true ? 0.3 : 0.45)))
+                            .blur(radius: on ? 0 : min(CGFloat(d) * 0.6, 3))
+                            .scaleEffect(on ? 1 : 0.93, anchor: .leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                             .onTapGesture { if let t = l.time { Task { await m.provider?.seek(to: t) } } }
                             .id(l.id)
                     }
-                    if !synced { Text("Not time-synced").font(.caption).foregroundStyle(.white.opacity(0.4)) }
-                    Text("Lyrics: LRCLIB community database").font(.caption2).foregroundStyle(.white.opacity(0.3)).padding(.top, 12)
+                    if !synced { Text("Not time-synced").font(.caption).foregroundStyle(.white.opacity(0.5)) }
+                    Text("Lyrics: LRCLIB community database").font(.caption2).foregroundStyle(.white.opacity(0.4)).padding(.top, 12)
+                    Spacer().frame(height: 220)
                 }
-                .padding(.horizontal, 24).padding(.vertical, 40)
-                .animation(.easeInOut(duration: 0.3), value: current)
+                .padding(.horizontal, 24)
+                .animation(.spring(response: 0.5, dampingFraction: 0.85), value: current)
             }
-            .onChange(of: current) { _, c in if let c { withAnimation(.easeInOut(duration: 0.4)) { proxy.scrollTo(c, anchor: .center) } } }
+            .onChange(of: current) { _, c in if let c { withAnimation(.spring(response: 0.6, dampingFraction: 0.9)) { proxy.scrollTo(c, anchor: UnitPoint(x: 0.5, y: 0.3)) } } }
         }
     }
 
