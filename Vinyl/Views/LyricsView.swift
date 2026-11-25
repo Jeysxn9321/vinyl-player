@@ -69,9 +69,7 @@ enum LyricsLoader {
     /// Handles CRLF, several timestamps on one line (`[00:10.0][00:50.0]text`) and ignores tags like `[ar:Artist]`.
     static func parseLRC(_ s: String) -> [LyricLine] {
         var stamped: [(TimeInterval, String)] = []
-        for rawLine in s.split(omittingEmptySubsequences: false, whereSeparator: { $0 == "
-" || $0 == "
-" || $0 == "" }) {
+        for rawLine in s.split(omittingEmptySubsequences: false, whereSeparator: { $0.isNewline }) {
             var rest = Substring(rawLine.trimmingCharacters(in: .whitespaces))
             var times: [TimeInterval] = []
             while rest.hasPrefix("["), let close = rest.firstIndex(of: "]") {
