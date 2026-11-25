@@ -47,39 +47,75 @@ struct LunaraRecordWidget: Widget {
     }
 }
 
+/// One album picked from the Apple Music (iTunes) catalog. The widget stores only its ID, so it always points at that exact album.
+struct AlbumEntity: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Album"
+    static var defaultQuery = AlbumQuery()
+    var id: String
+    var title: String
+    var artist: String
+    var art: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(title)", subtitle: "\(artist)", image: URL(string: art).map { DisplayRepresentation.Image(url: $0) })
+    }
+    init(id: String, title: String, artist: String, art: String) { self.id = id; self.title = title; self.artist = artist; self.art = art }
+    init?(_ r: [String: Any]) {
+        guard let cid = r["collectionId"] as? Int, let t = r["collectionName"] as? String else { return nil }
+        let a = ((r["artworkUrl100"] as? String) ?? "").replacingOccurrences(of: "100x100", with: "400x400")
+        self.init(id: String(cid), title: t, artist: (r["artistName"] as? String) ?? "", art: a)
+    }
+}
+
+struct AlbumQuery: EntityStringQuery {
+    private func fetch(_ path: String, _ items: [URLQueryItem]) async -> [AlbumEntity] {
+        var c = URLComponents(string: "https://itunes.apple.com/" + path)!
+        c.queryItems = items
+        guard let u = c.url, let (d, _) = try? await URLSession.shared.data(from: u),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let rs = j["results"] as? [[String: Any]] else { return [] }
+        return rs.filter { ($0["wrapperType"] as? String) == "collection" }.compactMap { AlbumEntity($0) }
+    }
+    func entities(for identifiers: [String]) async throws -> [AlbumEntity] {
+        let got = await fetch("lookup", [.init(name: "id", value: identifiers.joined(separator: ","))])
+        return identifiers.compactMap { id in got.first { $0.id == id } }
+    }
+    func entities(matching string: String) async throws -> [AlbumEntity] {
+        await fetch("search", [.init(name: "term", value: string), .init(name: "media", value: "music"),
+                               .init(name: "entity", value: "album"), .init(name: "limit", value: "25")])
+    }
+    func suggestedEntities() async throws -> [AlbumEntity] {
+        [] // the picker starts empty; the user searches by album or artist name
+    }
+}
+
 struct CollectionIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Collection"
-    static var description = IntentDescription("Type up to 6 albums, for example \"Daft Punk Discovery\".")
-    @Parameter(title: "Album 1") var a1: String?
-    @Parameter(title: "Album 2") var a2: String?
-    @Parameter(title: "Album 3") var a3: String?
-    @Parameter(title: "Album 4") var a4: String?
-    @Parameter(title: "Album 5") var a5: String?
-    @Parameter(title: "Album 6") var a6: String?
-    var queries: [String] { [a1, a2, a3, a4, a5, a6].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+    static var description = IntentDescription("Search and pick up to 6 albums.")
+    @Parameter(title: "Album 1") var a1: AlbumEntity?
+    @Parameter(title: "Album 2") var a2: AlbumEntity?
+    @Parameter(title: "Album 3") var a3: AlbumEntity?
+    @Parameter(title: "Album 4") var a4: AlbumEntity?
+    @Parameter(title: "Album 5") var a5: AlbumEntity?
+    @Parameter(title: "Album 6") var a6: AlbumEntity?
+    var albums: [AlbumEntity] { [a1, a2, a3, a4, a5, a6].compactMap { $0 } }
 }
 
 struct CollectionEntry: TimelineEntry { let date: Date; let items: [CollectionCard] }
 
-/// Looks each album up on the Apple Music (iTunes) Search API from the widget itself, so nothing has to be shared with the app.
+/// Downloads the covers of the picked albums from the widget itself, so nothing has to be shared with the app.
 enum AlbumLookup {
-    static func card(_ q: String) async -> CollectionCard? {
-        var c = URLComponents(string: "https://itunes.apple.com/search")!
-        c.queryItems = [.init(name: "term", value: q), .init(name: "entity", value: "album"), .init(name: "limit", value: "1")]
-        guard let u = c.url, let (d, _) = try? await URLSession.shared.data(from: u),
-              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let r = (j["results"] as? [[String: Any]])?.first,
-              let title = r["collectionName"] as? String else { return nil }
-        var img: UIImage?
-        if let s = (r["artworkUrl100"] as? String)?.replacingOccurrences(of: "100x100", with: "400x400"), let iu = URL(string: s),
-           let (id, _) = try? await URLSession.shared.data(from: iu) { img = UIImage(data: id) }
-        return CollectionCard(id: q, title: title, artist: (r["artistName"] as? String) ?? "", image: img)
-    }
-    static func cards(_ qs: [String]) async -> [CollectionCard] {
-        await withTaskGroup(of: (Int, CollectionCard?).self) { g in
-            for (i, q) in qs.enumerated() { g.addTask { (i, await card(q)) } }
+    static func cards(_ albums: [AlbumEntity]) async -> [CollectionCard] {
+        await withTaskGroup(of: (Int, CollectionCard).self) { g in
+            for (i, a) in albums.enumerated() {
+                g.addTask {
+                    var img: UIImage?
+                    if let u = URL(string: a.art), let (d, _) = try? await URLSession.shared.data(from: u) { img = UIImage(data: d) }
+                    return (i, CollectionCard(id: a.id, title: a.title, artist: a.artist, image: img))
+                }
+            }
             var out: [(Int, CollectionCard)] = []
-            for await (i, c) in g { if let c { out.append((i, c)) } }
+            for await r in g { out.append(r) }
             return out.sorted { $0.0 < $1.0 }.map { $0.1 }
         }
     }
@@ -88,11 +124,11 @@ enum AlbumLookup {
 struct CollectionProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> CollectionEntry { CollectionEntry(date: Date(), items: []) }
     func snapshot(for configuration: CollectionIntent, in context: Context) async -> CollectionEntry {
-        CollectionEntry(date: Date(), items: await AlbumLookup.cards(Array(configuration.queries.prefix(3))))
+        CollectionEntry(date: Date(), items: await AlbumLookup.cards(Array(configuration.albums.prefix(3))))
     }
     func timeline(for configuration: CollectionIntent, in context: Context) async -> Timeline<CollectionEntry> {
         let n = context.family == .systemSmall ? 1 : context.family == .systemMedium ? 3 : 6
-        let e = CollectionEntry(date: Date(), items: await AlbumLookup.cards(Array(configuration.queries.prefix(n))))
+        let e = CollectionEntry(date: Date(), items: await AlbumLookup.cards(Array(configuration.albums.prefix(n))))
         return Timeline(entries: [e], policy: .after(Date().addingTimeInterval(6 * 3600)))
     }
 }

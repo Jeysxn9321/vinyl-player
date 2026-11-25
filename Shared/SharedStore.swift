@@ -115,7 +115,7 @@ struct CollectionWidgetView: View {
             VStack(spacing: 6) {
                 CollectionDisc(image: nil).frame(width: 54, height: 54)
                 Text("Lunara collection").font(.footnote.bold())
-                Text("Edit the widget and type album names.").font(.caption2).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center)
+                Text("Edit the widget and pick albums.").font(.caption2).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center)
             }.foregroundStyle(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             switch family {

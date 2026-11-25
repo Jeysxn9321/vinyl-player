@@ -136,7 +136,7 @@ struct SettingsView: View {
                     Text("Looks up the album on MusicBrainz and the Cover Art Archive when a song plays. Discogs is off until you sign in at discogs.com, create a personal access token (Settings, Developers) and paste it here. The app ships no key: your token stays in this device's Keychain and is only sent to Discogs. Or use your own proxy (backend/discogs-proxy). Discogs images are never labelled as verified discs, and this has not been run against Discogs yet.")
                 }
                 Section {
-                    Text("Add the “Lunara collection” widget, touch and hold it, choose Edit Widget and type up to 6 albums (for example “Daft Punk Discovery”). Covers come from the Apple Music search.")
+                    Text("Add the “Lunara collection” widget, touch and hold it, choose Edit Widget, tap an album slot and search by album or artist name. Pick up to 6 from the Apple Music catalog; each slot stores that exact album.")
                         .font(.footnote).foregroundStyle(.secondary)
                     Text(SharedStore.available ? "Last-played widget: shared storage available." : "Last-played widget: unavailable on this install (no App Group), so it stays empty.")
                         .font(.caption).foregroundStyle(SharedStore.available ? Color.secondary : Color.orange)
