@@ -41,6 +41,23 @@ import Combine
         await provider?.pause()
     }
 
+    // MARK: Save / notices
+    @Published var notice: String?
+    @Published var saved: Set<String> = []   // track IDs whose save was confirmed this session
+    private var noticeTask: Task<Void, Never>?
+    func flash(_ s: String) {
+        noticeTask?.cancel(); withAnimation { notice = s }
+        noticeTask = Task { try? await Task.sleep(nanoseconds: 3_000_000_000); if !Task.isCancelled { withAnimation { notice = nil } } }
+    }
+    func saveCurrent() async {
+        guard let t = state.track else { return }
+        let err: String?
+        if provider?.kind == .spotify {
+            if let uri = TrackActions.spotifyURI(t.id) { err = await spotify?.save(uri: uri) } else { err = "This item has no Spotify track ID (local file?)." }
+        } else { err = await TrackActions.addToAppleLibrary(t.id) }
+        if let err { flash(err) } else { saved.insert(t.id); flash(provider?.kind == .spotify ? "Saved to Liked Songs" : "Added to your library") }
+    }
+
     private var artTask: Task<Void, Never>?
     private var busy = false   // a connect or restore is running
 
@@ -210,6 +227,7 @@ struct PlayerView: View {
     @State private var showAM = CommandLine.arguments.contains("-ambrowser")
     @State private var showSettings = CommandLine.arguments.contains("-settings")
     @State private var showArtwork = CommandLine.arguments.contains("-artwork")
+    @State private var showAddToPlaylist = false
     @State private var showLyrics = CommandLine.arguments.contains("-lyrics")
     @State private var catalog: CatalogTarget? = {
         let a = CommandLine.arguments
@@ -245,6 +263,13 @@ struct PlayerView: View {
             }
         }
         .overlay(alignment: .top) { pill }
+        .overlay(alignment: .top) {
+            if let n = m.notice {
+                Text(n).font(.footnote.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.center)
+                    .padding(.horizontal, 14).padding(.vertical, 8).background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8).padding(.horizontal, 20).transition(.opacity).allowsHitTesting(false)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture { reveal() }
         .onAppear { if !CommandLine.arguments.contains("-demo") { reveal() } }
@@ -256,6 +281,7 @@ struct PlayerView: View {
         .sheet(isPresented: $showQueue) { QueueView(m: m) }
         .sheet(isPresented: $showAM) { AppleMusicLibraryView(m: m) }
         .fullScreenCover(isPresented: $showLyrics) { LyricsView(m: m) }
+        .sheet(isPresented: $showAddToPlaylist) { AddToPlaylistView(m: m, trackID: m.state.track?.id ?? "") }
         .sheet(item: $catalog) { CatalogView(m: m, target: $0) }
         .sheet(isPresented: $showArtwork) { ArtworkSelectorView(art: m.artwork, streamingCover: m.art) }
         .background {
@@ -498,6 +524,13 @@ struct PlayerView: View {
             }
             Button { showSettings = true } label: { utilIcon("gearshape") }.accessibilityLabel("Settings")
             Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
+            Menu {
+                Button { Task { await m.saveCurrent() } } label: {
+                    Label(m.provider?.kind == .spotify ? "Save to Liked Songs" : "Add to Apple Music library", systemImage: "heart")
+                }
+                Button { showAddToPlaylist = true } label: { Label("Add to playlist…", systemImage: "text.badge.plus") }
+            } label: { utilIcon(m.state.track.map { m.saved.contains($0.id) } == true ? "heart.fill" : "heart") }
+                .accessibilityLabel("Save or add to playlist").disabled(m.state.track == nil)
             Button { showLyrics = true } label: { utilIcon("quote.bubble") }.accessibilityLabel("Lyrics")
             Menu {
                 if let d = m.sleepDeadline {

@@ -34,7 +34,7 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         c.queryItems = [.init(name: "client_id", value: Self.clientID), .init(name: "response_type", value: "code"),
             .init(name: "redirect_uri", value: redirect), .init(name: "code_challenge_method", value: "S256"),
             .init(name: "code_challenge", value: challenge),
-            .init(name: "scope", value: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative")]
+            .init(name: "scope", value: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-library-modify playlist-modify-private playlist-modify-public")]
         let url = c.url!
         let cb: URL = try await withCheckedThrowingContinuation { cont in
             DispatchQueue.main.async {
@@ -125,6 +125,27 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         case 404: return "No active Spotify device. Open Spotify and play something once."
         default: return "Spotify error \(status)."
         }
+    }
+    private func writeError(_ status: Int) -> String? {
+        switch status {
+        case 200..<300: return nil
+        case 401, 403: return "Spotify refused. If you connected before this feature, Reconnect to grant the new permission (also needs Premium or a playlist you own)."
+        case 404: return "Spotify couldn't find that."
+        default: return "Spotify error \(status)."
+        }
+    }
+    private var missingWrite: Bool { !granted.isEmpty && !granted.contains("user-library-modify") }
+    /// Saves a track to Liked Songs (`PUT /me/library`, which replaced `/me/tracks` for development-mode apps in 2026).
+    func save(uri: String) async -> String? {
+        if missingWrite { return "Reconnect Spotify to grant the permission to save songs." }
+        guard let (_, st) = await call("PUT", "/library?uris=" + (uri.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? uri), root: "/me") else { return "Couldn't reach Spotify." }
+        return writeError(st)
+    }
+    /// `POST /playlists/{id}/items` (replaced `/tracks`).
+    func add(uri: String, toPlaylist id: String) async -> String? {
+        if missingWrite { return "Reconnect Spotify to grant the permission to edit playlists." }
+        guard let (_, st) = await call("POST", "/items?uris=" + (uri.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? uri), root: "/playlists/" + id) else { return "Couldn't reach Spotify." }
+        return writeError(st)
     }
     func setShuffle(_ on: Bool) async { _ = await call("PUT", "/shuffle?state=\(on)"); await settle() }
     func setRepeat(_ mode: RepeatMode) async {

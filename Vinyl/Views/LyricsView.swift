@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(Translation)
+import Translation
+#endif
 
 /// Lyrics from LRCLIB (https://lrclib.net), a free community database. Neither Spotify nor Apple Music gives third-party
 /// apps their lyrics, so a song missing from LRCLIB simply has none here. Time-synced when LRCLIB has timestamps.
@@ -81,6 +84,11 @@ struct LyricsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var result: LyricsLoader.Result?
     @State private var failed = false
+    enum Mode { case original, romanised, translated }
+    @State private var mode = Mode.original
+    @State private var translations: [Int: String] = [:]
+    @State private var transTrigger = 0
+    @State private var transNote: String?
     private var demo: Bool { CommandLine.arguments.contains("-demo") }
 
     static let demoLines: [LyricLine] = [
@@ -100,7 +108,7 @@ struct LyricsView: View {
                         sideColumn(width: g.size.width * 0.42, height: g.size.height)
                         content.padding(.leading, 40).frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    closeButton.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    controls.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 } else {
                     VStack(spacing: 0) { header; content }
                 }
@@ -108,6 +116,8 @@ struct LyricsView: View {
         }
         .preferredColorScheme(.dark)
         .task(id: m.state.track?.id) { await load() }
+        .modifier(TranslateIfPossible(lines: currentLines, trigger: transTrigger,
+                                      done: { translations = $0 }, fail: { transNote = "Translation failed: \($0)" }))
     }
 
     /// Landscape: big cover, title and artist on the left, lyrics on the right.
@@ -135,6 +145,44 @@ struct LyricsView: View {
         }.foregroundStyle(.white)
     }
 
+    /// Original / romanised / translated. Romanising uses the system's own transliteration (works offline, any iOS).
+    /// Translating uses Apple's on-device Translation framework, which needs iOS 18; there is no cloud service and no key.
+    private var controls: some View {
+        HStack(spacing: 10) {
+            if case .lines = result {
+                Menu {
+                    Button { mode = .original; transNote = nil } label: { Label("Original", systemImage: mode == .original ? "checkmark" : "textformat") }
+                    Button { mode = .romanised; transNote = nil } label: { Label("Romanised (Latin letters)", systemImage: mode == .romanised ? "checkmark" : "character") }
+                    if translationAvailable {
+                        Button { mode = .translated; transNote = nil; if translations.isEmpty { transTrigger += 1 } } label: {
+                            Label("Translate to your language", systemImage: mode == .translated ? "checkmark" : "globe")
+                        }
+                    } else {
+                        Text("Translation needs iOS 18")
+                    }
+                } label: {
+                    Image(systemName: "character.bubble").font(.subheadline.bold()).padding(10).background(.white.opacity(0.18), in: Circle())
+                }.foregroundStyle(.white).accessibilityLabel("Lyrics language")
+            }
+            closeButton
+        }
+    }
+
+    private var translationAvailable: Bool {
+        #if canImport(Translation)
+        if #available(iOS 18, *) { return true }
+        #endif
+        return false
+    }
+
+    private func shown(_ l: LyricLine) -> String {
+        switch mode {
+        case .original: return l.text
+        case .romanised: return l.text.applyingTransform(.toLatin, reverse: false) ?? l.text
+        case .translated: return translations[l.id] ?? l.text
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 12) {
             Group {
@@ -145,7 +193,7 @@ struct LyricsView: View {
                 Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
             }
             Spacer()
-            closeButton
+            controls
         }
         .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 8)
     }
@@ -175,7 +223,7 @@ struct LyricsView: View {
                     ForEach(Array(lines.enumerated()), id: \.element.id) { i, l in
                         let d = current.map { abs(i - $0) } ?? 0
                         let on = !synced || i == current
-                        Text(l.text.isEmpty ? "•••" : l.text)
+                        Text(l.text.isEmpty ? "•••" : shown(l))
                             .font(.system(size: 34, weight: .bold))
                             .foregroundStyle(.white.opacity(on ? 1 : (current.map { i < $0 } == true ? 0.3 : 0.45)))
                             .blur(radius: on ? 0 : min(CGFloat(d) * 0.6, 3))
@@ -185,6 +233,8 @@ struct LyricsView: View {
                             .onTapGesture { if let t = l.time { Task { await m.provider?.seek(to: t) } } }
                             .id(l.id)
                     }
+                    if mode == .translated, translations.isEmpty { Text(transNote ?? "Translating…").font(.caption).foregroundStyle(.white.opacity(0.5)) }
+                    if mode == .romanised { Text("Romanised by the system; may be approximate").font(.caption).foregroundStyle(.white.opacity(0.5)) }
                     if !synced { Text("Not time-synced").font(.caption).foregroundStyle(.white.opacity(0.5)) }
                     Text("Lyrics: LRCLIB community database").font(.caption2).foregroundStyle(.white.opacity(0.4)).padding(.top, 12)
                     Spacer().frame(height: 220)
@@ -196,10 +246,51 @@ struct LyricsView: View {
         }
     }
 
+    private var currentLines: [LyricLine] { if case .lines(let l, _) = result { return l }; return [] }
+
     func load() async {
-        result = nil; failed = false
+        result = nil; failed = false; mode = .original; translations = [:]; transNote = nil
         if demo { result = .lines(Self.demoLines, synced: true); return }
         guard let t = m.state.track else { result = LyricsLoader.Result.none; return }
         if let r = await LyricsLoader.load(t) { result = r } else { failed = true }
     }
 }
+
+/// Applies the iOS 18 translation task only where the framework exists.
+struct TranslateIfPossible: ViewModifier {
+    let lines: [LyricLine]; let trigger: Int
+    let done: ([Int: String]) -> Void; let fail: (String) -> Void
+    func body(content: Content) -> some View {
+        #if canImport(Translation)
+        if #available(iOS 18, *) { content.modifier(TranslateHost(lines: lines, trigger: trigger, done: done, fail: fail)) }
+        else { content }
+        #else
+        content
+        #endif
+    }
+}
+
+#if canImport(Translation)
+@available(iOS 18.0, *)
+struct TranslateHost: ViewModifier {
+    let lines: [LyricLine]; let trigger: Int
+    let done: ([Int: String]) -> Void; let fail: (String) -> Void
+    @State private var config: TranslationSession.Configuration?
+    func body(content: Content) -> some View {
+        content
+            .translationTask(config) { session in
+                do {
+                    let reqs = lines.filter { !$0.text.isEmpty }
+                        .map { TranslationSession.Request(sourceText: $0.text, clientIdentifier: String($0.id)) }
+                    let res = try await session.translations(from: reqs)
+                    var d: [Int: String] = [:]
+                    for x in res { if let c = x.clientIdentifier, let i = Int(c) { d[i] = x.targetText } }
+                    done(d)
+                } catch { fail(error.localizedDescription) }
+            }
+            .onChange(of: trigger) { _, _ in
+                if config == nil { config = .init(source: nil, target: Locale.current.language) } else { config?.invalidate() }
+            }
+    }
+}
+#endif
