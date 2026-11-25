@@ -89,17 +89,50 @@ struct LyricsView: View {
     ].enumerated().map { LyricLine(id: $0.offset, time: Double($0.offset) * 12, text: $0.element) }
 
     var body: some View {
-        ZStack {
-            // Apple Music look: a soft colour wash taken from the cover, slowly shifting.
-            LinearGradient(colors: [m.tint.opacity(1), m.tint.opacity(0.55), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .overlay(Color.black.opacity(0.25)).ignoresSafeArea()
-            VStack(spacing: 0) {
-                header
-                content
+        GeometryReader { g in
+            let wide = g.size.width > g.size.height
+            ZStack {
+                // Apple Music look: a soft colour wash taken from the cover.
+                LinearGradient(colors: [m.tint.opacity(1), m.tint.opacity(0.55), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .overlay(Color.black.opacity(0.25)).ignoresSafeArea()
+                if wide {
+                    HStack(spacing: 0) {
+                        sideColumn(height: g.size.height).frame(width: g.size.width * 0.38)
+                        content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    VStack(spacing: 0) { header; content }
+                }
             }
         }
         .preferredColorScheme(.dark)
         .task(id: m.state.track?.id) { await load() }
+    }
+
+    /// Landscape: big cover, title and artist on the left, lyrics on the right.
+    private func sideColumn(height: CGFloat) -> some View {
+        let side = min(height * 0.55, 340)
+        return VStack(alignment: .leading, spacing: 14) {
+            closeButton
+            Spacer(minLength: 0)
+            Group {
+                if let a = m.art { Image(uiImage: a).resizable().scaledToFill() } else { Color.white.opacity(0.15) }
+            }.frame(width: side, height: side).clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(m.state.track?.title ?? "Lyrics").font(.title3.bold()).lineLimit(2)
+                Text(m.state.track?.artist ?? "").font(.body).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+            }.frame(width: side, alignment: .leading)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.leading, 40).padding(.vertical, 24)
+    }
+
+    private var closeButton: some View {
+        Button { dismiss() } label: {
+            Image(systemName: "xmark").font(.subheadline.bold()).padding(10).background(.white.opacity(0.18), in: Circle())
+        }.foregroundStyle(.white)
     }
 
     private var header: some View {
@@ -112,9 +145,7 @@ struct LyricsView: View {
                 Text(m.state.track?.artist ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
             }
             Spacer()
-            Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.subheadline.bold()).padding(10).background(.white.opacity(0.18), in: Circle())
-            }.foregroundStyle(.white)
+            closeButton
         }
         .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 8)
     }

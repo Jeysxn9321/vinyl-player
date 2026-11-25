@@ -227,7 +227,7 @@ struct PlayerView: View {
         .sheet(isPresented: $showBrowser) { PlaylistsView(m: m) }
         .sheet(isPresented: $showQueue) { QueueView(m: m) }
         .sheet(isPresented: $showAM) { AppleMusicLibraryView(m: m) }
-        .sheet(isPresented: $showLyrics) { LyricsView(m: m) }
+        .fullScreenCover(isPresented: $showLyrics) { LyricsView(m: m) }
         .sheet(item: $catalog) { CatalogView(m: m, target: $0) }
         .sheet(isPresented: $showArtwork) { ArtworkSelectorView(art: m.artwork, streamingCover: m.art) }
         .background {
