@@ -57,6 +57,23 @@ final class AppleMusicProvider: MusicProvider {
         }
         publish()
     }
+    /// Adds a song after the current one (`next`) or at the end of the queue.
+    func enqueue(_ s: SongItem, next: Bool) async -> String? {
+        if useMP {
+            guard itunes[s.id] != nil else { return "This song can't join the current queue. Start it from its own list." }
+            let d = MPMusicPlayerStoreQueueDescriptor(storeIDs: [s.id])
+            if next { mp.prepend(d) } else { mp.append(d) }
+            publish(); return nil
+        }
+        guard player.queue.currentEntry != nil else { return "Start playing something first, then queue songs." }
+        let pos: ApplicationMusicPlayer.Queue.EntryInsertionPosition = next ? .afterCurrentEntry : .tail
+        do {
+            if let t = current.first(where: { $0.id.rawValue == s.id }) { try await player.queue.insert(t, position: pos) }
+            else if let song = found[s.id] { try await player.queue.insert(song, position: pos) }
+            else { return "This song can't join the current queue. Start it from its own list." }
+            return nil
+        } catch { return "Couldn't add it: \(error.localizedDescription)" }
+    }
     private var playlists: [String: Playlist] = [:]
     private var albums: [String: Album] = [:]
     private var current: [MusicKit.Track] = []   // songs of the album/playlist whose list is open

@@ -150,7 +150,7 @@ struct AlbumTracksView: View {
             if loading { ProgressView() }
             else if songs.isEmpty, message == nil { Text("No songs found.").foregroundStyle(.secondary) }
             ForEach(songs) { s in
-                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain)
+                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
             }
         }
         .navigationTitle(album.title).navigationBarTitleDisplayMode(.inline)

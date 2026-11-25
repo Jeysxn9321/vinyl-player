@@ -47,7 +47,7 @@ struct PlaylistsView: View {
                         if searching { ProgressView() }
                         else if songs.isEmpty { Text(query.count < 2 ? "Keep typing to search Spotify." : "No songs found.").foregroundStyle(.secondary) }
                         ForEach(songs) { s in
-                            Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).padding(.vertical, 4)
+                            Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s).padding(.vertical, 4)
                         }
                     }.padding(.horizontal, 20)
                 } else if shown.isEmpty {

@@ -83,7 +83,7 @@ struct AppleMusicLibraryView: View {
                     if !results.songs.isEmpty {
                         Section("Songs") {
                             ForEach(results.songs) { s in
-                                Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain)
+                                Button { Task { await playSong(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
                             }
                         }
                     }

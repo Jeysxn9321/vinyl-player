@@ -140,3 +140,8 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 - Apple Music browsing widened: full library (no 50-item cap), search now returns songs (25 via MusicKit, 50 via iTunes fallback), albums, artists and playlists, artist pages open from results, and the Library screen shows the store's top albums when the search box is empty. Playlists need the MusicKit developer token, so they may be absent on a sideloaded build. NOT tested on a device.
 
 - Collection widget: albums are now picked from a searchable list (AppEntity over the iTunes catalog, 25 matches per search) and stored by collection ID, so the widget shows that exact album instead of the first text-search hit. NOT tested on a device.
+
+## Batch 1: sleep timer, AirPlay, queue add (built in CI only, NOT tested on a device)
+- **Sleep timer** (moon icon in the utility row: 5/15/30/45/60 min). Wall-clock deadline checked every 5 s and when the app becomes active. The app is suspended when the screen locks, so while a timer is armed the screen is kept on (`isIdleTimerDisabled`) until it fires or is cancelled. It pauses the active provider; it does not stop audio if the app was killed.
+- **AirPlay** button (`AVRoutePickerView`), hidden for Spotify because Spotify plays on its own Connect device and AirPlay of this device does not affect it.
+- **Play next / Add to queue**: long-press a song in lists. Apple Music: `player.queue.insert` (MusicKit) or `prepend/append` (store-ID fallback); needs something already playing. Spotify: `POST /me/player/queue` (add to end only, Spotify has no "play next"; needs Premium + active device). **Queue reorder not done**: no safe API path verified.

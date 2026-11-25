@@ -72,7 +72,7 @@ struct SpotifyTracksView: View {
             if let note { Text(note).font(.footnote).foregroundStyle(.secondary) }
             if loading { ProgressView() }
             ForEach(songs) { s in
-                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain)
+                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
             }
         }
         .navigationTitle(playlist.name).navigationBarTitleDisplayMode(.inline)
@@ -118,7 +118,7 @@ struct AMTracksView: View {
             if loading { ProgressView() }
             else if songs.isEmpty { Text("No songs found.").foregroundStyle(.secondary) }
             ForEach(songs) { s in
-                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain)
+                Button { Task { await play(s) } } label: { SongRow(s: s) }.buttonStyle(.plain).queueActions(m, s)
             }
         }
         .navigationTitle(item.name).navigationBarTitleDisplayMode(.inline)

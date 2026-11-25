@@ -15,6 +15,32 @@ import Combine
 
     init() { artBag = artwork.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() } }
 
+
+    // MARK: Sleep timer
+    /// Wall-clock deadline. The app is suspended when the screen locks, so a timer cannot fire then: while one is armed the
+    /// screen is kept on, and the deadline is re-checked whenever the app becomes active again.
+    @Published var sleepDeadline: Date?
+    private var sleepTask: Task<Void, Never>?
+
+    func setSleep(minutes: Int?) {
+        sleepTask?.cancel()
+        guard let minutes else { sleepDeadline = nil; UIApplication.shared.isIdleTimerDisabled = false; return }
+        sleepDeadline = Date().addingTimeInterval(Double(minutes) * 60)
+        UIApplication.shared.isIdleTimerDisabled = true
+        sleepTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                await self?.checkSleep()
+            }
+        }
+    }
+    func checkSleep() async {
+        guard let d = sleepDeadline, Date() >= d else { return }
+        sleepTask?.cancel(); sleepDeadline = nil
+        UIApplication.shared.isIdleTimerDisabled = false
+        await provider?.pause()
+    }
+
     private var artTask: Task<Void, Never>?
     private var busy = false   // a connect or restore is running
 
@@ -178,6 +204,7 @@ struct PlayerView: View {
     @ObservedObject var m: PlayerModel
     @State private var showControls = !CommandLine.arguments.contains("-hidden")
     @State private var hideTask: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showBrowser = CommandLine.arguments.contains("-browser")
     @State private var showQueue = CommandLine.arguments.contains("-queue")
     @State private var showAM = CommandLine.arguments.contains("-ambrowser")
@@ -221,6 +248,7 @@ struct PlayerView: View {
         .contentShape(Rectangle())
         .onTapGesture { reveal() }
         .onAppear { if !CommandLine.arguments.contains("-demo") { reveal() } }
+        .onChange(of: scenePhase) { _, p in if p == .active { Task { await m.checkSleep() } } }
         .onReceive(NotificationCenter.default.publisher(for: .discogsChanged)) { _ in m.artwork.reloadProviders() }
         .onChange(of: autoHide) { _, on in if on { reveal() } else { hideTask?.cancel(); showControls = true } }
         .sheet(isPresented: $showSettings) { SettingsView(m: m) }
@@ -471,6 +499,17 @@ struct PlayerView: View {
             Button { showSettings = true } label: { utilIcon("gearshape") }.accessibilityLabel("Settings")
             Button { showQueue = true } label: { utilIcon("list.bullet") }.accessibilityLabel("Queue")
             Button { showLyrics = true } label: { utilIcon("quote.bubble") }.accessibilityLabel("Lyrics")
+            Menu {
+                if let d = m.sleepDeadline {
+                    Text("Pauses at \(d.formatted(date: .omitted, time: .shortened))")
+                    Button("Cancel timer", role: .destructive) { m.setSleep(minutes: nil) }
+                }
+                ForEach([5, 15, 30, 45, 60], id: \.self) { n in Button("\(n) minutes") { m.setSleep(minutes: n); reveal() } }
+                Text("Keeps the screen on until it ends")
+            } label: { utilIcon(m.sleepDeadline == nil ? "moon.zzz" : "moon.zzz.fill") }.accessibilityLabel("Sleep timer")
+            if m.provider?.kind != .spotify {
+                AirPlayButton().frame(width: 44, height: 44).accessibilityLabel("AirPlay")
+            }
             Button { showArtwork = true } label: { utilIcon("opticaldisc") }.accessibilityLabel("Vinyl artwork")
             Spacer()
         }

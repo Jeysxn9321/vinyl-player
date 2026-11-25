@@ -116,6 +116,16 @@ final class SpotifyProvider: NSObject, MusicProvider, ASWebAuthenticationPresent
         for _ in 0..<max(1, min(n, 50)) { _ = await call("POST", "/next"); try? await Task.sleep(nanoseconds: 150_000_000) }
         await settle(500)
     }
+    /// Adds a track to the end of the playback queue. Spotify has no "play next" call.
+    func enqueue(uri: String) async -> String? {
+        guard let (_, status) = await call("POST", "/queue?uri=" + (uri.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? uri)) else { return "Couldn't reach Spotify." }
+        switch status {
+        case 200..<300: return nil
+        case 403: return "Spotify refused. Queueing needs Premium."
+        case 404: return "No active Spotify device. Open Spotify and play something once."
+        default: return "Spotify error \(status)."
+        }
+    }
     func setShuffle(_ on: Bool) async { _ = await call("PUT", "/shuffle?state=\(on)"); await settle() }
     func setRepeat(_ mode: RepeatMode) async {
         let v = mode == .all ? "context" : (mode == .one ? "track" : "off")
