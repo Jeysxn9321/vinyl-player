@@ -135,6 +135,7 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 
 - Lyrics screen restyled after Apple Music: cover-tinted gradient background, header with cover/title/artist, large bold lines, current line white, others dimmed and progressively blurred, spring scrolling. Not tested on a device.
 - Lyrics now open full screen (fullScreenCover, not a floating sheet). In landscape/iPad: cover, title and artist on the left, lyrics on the right; portrait unchanged. Not tested on a device.
+- Lock-screen Live Activity restyled after the player: record with tonearm, bigger title, tinted artist and progress bar, elapsed timer. Flat image (activities cannot animate, and the 4 KB state limit rules out sending the cover). NOT done: replacing the system Now Playing artwork with a vinyl image, because Apple Music (MusicKit player) and Spotify (their own app) own that panel. Not tested on a device.
 
 - Apple Music browsing widened: full library (no 50-item cap), search now returns songs (25 via MusicKit, 50 via iTunes fallback), albums, artists and playlists, artist pages open from results, and the Library screen shows the store's top albums when the search box is empty. Playlists need the MusicKit developer token, so they may be absent on a sideloaded build. NOT tested on a device.
 
