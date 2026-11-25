@@ -95,6 +95,7 @@ struct LyricsView: View {
     @State private var translations: [Int: String] = [:]
     @State private var transTrigger = 0
     @State private var transNote: String?
+    @State private var transFor: String?
     private var demo: Bool { CommandLine.arguments.contains("-demo") }
 
     static let demoLines: [LyricLine] = [
@@ -123,7 +124,7 @@ struct LyricsView: View {
         .preferredColorScheme(.dark)
         .task(id: m.state.track?.id) { await load() }
         .modifier(TranslateIfPossible(lines: currentLines, trigger: transTrigger,
-                                      done: { translations = $0 }, fail: { transNote = "Translation failed: \($0)" }))
+                                      done: { if m.state.track?.id == transFor { translations = $0 } }, fail: { transNote = "Translation failed: \($0)" }))
     }
 
     /// Landscape: big cover, title and artist on the left, lyrics on the right.
@@ -160,7 +161,7 @@ struct LyricsView: View {
                     Button { mode = .original; transNote = nil } label: { Label("Original", systemImage: mode == .original ? "checkmark" : "textformat") }
                     Button { mode = .romanised; transNote = nil } label: { Label("Romanised (Latin letters)", systemImage: mode == .romanised ? "checkmark" : "character") }
                     if translationAvailable {
-                        Button { mode = .translated; transNote = nil; if translations.isEmpty { transTrigger += 1 } } label: {
+                        Button { mode = .translated; transNote = nil; if translations.isEmpty { transFor = m.state.track?.id; transTrigger += 1 } } label: {
                             Label("Translate to your language", systemImage: mode == .translated ? "checkmark" : "globe")
                         }
                     } else {

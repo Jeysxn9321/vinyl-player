@@ -155,3 +155,11 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 ## Batch 3: A/B sides, tests (not tested on a device)
 - Album page: "Vinyl sides (estimated)" toggle splits the track list in half by count. No service gives the real side split, so it is labelled an estimate. Real data (MusicBrainz track positions) is not wired in.
 - `parseLRC` now handles CRLF, repeated timestamps and tags. New offline tests in `VinylTests/LyricsAndSidesTests.swift` run in CI before the IPA build.
+
+## Known limits of batches 1 to 3 (read before trusting them)
+- Nothing here was run on a device. CI only proves it compiles and the offline unit tests pass.
+- Romanisation uses the system `.toLatin`; it reads kanji as Chinese, so Japanese lyrics will often be wrong, not just approximate.
+- "Vinyl sides" is a half-by-track-count split on the album page, not real pressing data and not a dedicated vinyl view.
+- Queue reordering was not done. Spotify can only add to the end; Apple "Play next" needs something already playing.
+- Spotify `PUT /me/library` and its required scope are unverified against a real account. First save with an older login triggers a one-time sign-in again.
+- Translation needs iOS 18 and may ask to download a language pack.

@@ -51,9 +51,16 @@ import Combine
     }
     func saveCurrent() async {
         guard let t = state.track else { return }
-        let err: String?
+        var err: String?
         if provider?.kind == .spotify {
-            if let uri = TrackActions.spotifyURI(t.id) { err = await spotify?.save(uri: uri) } else { err = "This item has no Spotify track ID (local file?)." }
+            if let uri = TrackActions.spotifyURI(t.id) {
+                err = await spotify?.save(uri: uri)
+                // An older login lacks the new permission: sign in again once (the user tapped save), then retry.
+                if let e = err, e.contains("Reconnect") {
+                    flash("Spotify needs one more permission. Signing in again…")
+                    if await reauthorizeSpotify() { err = await spotify?.save(uri: uri) }
+                }
+            } else { err = "This item has no Spotify track ID (local file?)." }
         } else { err = await TrackActions.addToAppleLibrary(t.id) }
         if let err { flash(err) } else { saved.insert(t.id); flash(provider?.kind == .spotify ? "Saved to Liked Songs" : "Added to your library") }
     }

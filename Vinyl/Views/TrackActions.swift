@@ -38,7 +38,7 @@ enum TrackActions {
             let meta = MPMediaPlaylistCreationMetadata(name: "Lunara")
             MPMediaLibrary.default().getPlaylist(with: applePlaylistID, creationMetadata: meta) { pl, e in
                 guard let pl else { c.resume(returning: "Couldn't open the Lunara playlist: \(e?.localizedDescription ?? "unknown error")"); return }
-                pl.addItem(withProductID: id) { _ in c.resume(returning: nil) }
+                pl.addItem(withProductID: id) { _, e2 in c.resume(returning: e2.map { "Apple Music refused: \($0.localizedDescription)" }) }
             }
         }
     }
