@@ -151,3 +151,7 @@ GitHub Actions run "Build unsigned IPA" -> artifact `Vinyl-ipa` -> `Vinyl.ipa`. 
 - "Add to playlist": Spotify `POST /playlists/{id}/items`; Apple Music can only write to playlists the app created, so songs go to one playlist named "Lunara".
 - Spotify scopes were extended (`user-library-modify`, `playlist-modify-*`). An older login has to reconnect once; the exact scope `/me/library` requires is unverified, so a 401/403 shows a reconnect message rather than assuming success.
 - Lyrics: menu with Original / Romanised (system transliteration, offline) / Translate (Apple on-device Translation, iOS 18 only; hidden behind a note on iOS 17). Romanisation quality is the system's and may be approximate. Translation was never run on a device.
+
+## Batch 3: A/B sides, tests (not tested on a device)
+- Album page: "Vinyl sides (estimated)" toggle splits the track list in half by count. No service gives the real side split, so it is labelled an estimate. Real data (MusicBrainz track positions) is not wired in.
+- `parseLRC` now handles CRLF, repeated timestamps and tags. New offline tests in `VinylTests/LyricsAndSidesTests.swift` run in CI before the IPA build.
